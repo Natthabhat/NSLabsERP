@@ -9,3 +9,5 @@ coverage/
 ssh-known-hosts
 backups/
 deploy.log
+
+*.tar
