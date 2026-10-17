@@ -1,4 +1,4 @@
-import { readRecords } from "../../../lib/sheets.mjs";
+import { readRecords } from "../../../lib/data.mjs";
 import { json, failure } from "../../../lib/http.mjs";
 export const dynamic = "force-dynamic";
 export async function GET(request) {

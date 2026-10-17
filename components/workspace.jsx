@@ -253,20 +253,21 @@ export default function Workspace() {
           }),
         });
         if (result.saved !== true) throw new Error("Save was not confirmed.");
-        notify("Saved to Google Sheets");
+        notify(status?.backend === "postgres" ? "Saved to PostgreSQL" : "Saved to Google Sheets");
       }
       setEditor(null);
       setRefresh((r) => r + 1);
     } catch (e) {
       setEditError(
         e.message +
-          " Close and refresh to check the current sheet before making another save.",
+          " Close and refresh to check the current record before making another save.",
       );
       setUncertain(true);
     } finally {
       setSaving(false);
     }
   }
+  const isPostgres = status?.backend === "postgres";
   const fresh = !loading && !error,
     records = data?.rows || [],
     rowsLabel = data?.total === undefined ? "—" : data.total.toLocaleString();
@@ -297,7 +298,7 @@ export default function Workspace() {
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
               {modules
-                .filter((t) => t.group === group)
+                .filter((t) => t.group === group && (status?.backend !== "postgres" || status.modules?.includes(t.id)))
                 .map((tab) => (
                   <button
                     key={tab.id}
@@ -322,7 +323,7 @@ export default function Workspace() {
             <div>
               <b>NS Labs Studio</b>
               <small>
-                {mode === "live" ? "Google connected" : "Local workspace"}
+                {mode === "live" ? (isPostgres ? "PostgreSQL connected" : "Google connected") : "Local workspace"}
               </small>
             </div>
             <span className="online-dot" />
@@ -358,7 +359,7 @@ export default function Workspace() {
             >
               <span />
               {mode === "live"
-                ? "Google Sheets connected"
+                ? (isPostgres ? "PostgreSQL connected" : "Google Sheets connected")
                 : mode === "demo"
                   ? "Demo workspace"
                   : "Not connected"}
@@ -386,14 +387,14 @@ export default function Workspace() {
               <p>{selected.description}</p>
             </div>
             <div className="page-actions">
-              <a
+              {isPostgres ? <span className="button"><Cloud size={14} /> PostgreSQL</span> : <a
                 className="button"
                 target="_blank"
                 rel="noopener noreferrer"
                 href={`${SOURCE_URL}#gid=${selected.id}`}
               >
                 <ExternalLink size={14} /> Source sheet
-              </a>
+              </a>}
               <button
                 className="button primary"
                 onClick={() =>
@@ -421,7 +422,7 @@ export default function Workspace() {
                   status?.connected ? changeMode("live") : setSetup(true)
                 }
               >
-                Connect your sheet <ArrowRight size={13} />
+                {isPostgres ? "Sign in to PostgreSQL" : "Connect your sheet"} <ArrowRight size={13} />
               </button>
             </div>
           )}
@@ -564,7 +565,7 @@ export default function Workspace() {
                     : "WORKSHEET PREVIEW"}
               </span>
               <span>
-                <LockKeyhole size={11} /> Formula cells are read-only
+                <LockKeyhole size={11} /> {isPostgres ? "Calculated totals are read-only" : "Formula cells are read-only"}
               </span>
             </div>
             <div className="table-scroll" aria-busy={loading}>
@@ -586,16 +587,16 @@ export default function Workspace() {
                   </span>
                   <h3>Your sheet. A better place to work.</h3>
                   <p>
-                    Connect Google Sheets to read and edit your real records.
+                    {isPostgres ? "Sign in to read and edit your PostgreSQL records." : "Connect Google Sheets to read and edit your real records."}
                     <br />
-                    Your formulas and original spreadsheet stay in place.
+                    {isPostgres ? "Your existing expenses, filament, sales and payouts are ready." : "Your formulas and original spreadsheet stay in place."}
                   </p>
                   <div>
                     <button
                       className="button primary"
                       onClick={() => setSetup(true)}
                     >
-                      <Link2 size={14} /> Connect Google Sheets
+                      <Link2 size={14} /> {isPostgres ? "Sign in to PostgreSQL" : "Connect Google Sheets"}
                     </button>
                     <button
                       className="button"
@@ -716,7 +717,7 @@ export default function Workspace() {
               <CheckCircle2 size={13} />{" "}
               {mode === "demo"
                 ? "Demo edits never change your Google Sheet."
-                : "Edits change one cell at a time. Surrounding formulas stay intact."}
+                : (isPostgres ? "Changes save to PostgreSQL. Calculated totals update automatically." : "Edits change one cell at a time. Surrounding formulas stay intact.")}
             </span>
             <span>
               {data?.limited
@@ -797,7 +798,7 @@ export default function Workspace() {
                       </b>
                       <p>
                         {editor.cell.formula
-                          ? "This value is calculated in Google Sheets. Edit its input cells to update it."
+                          ? (isPostgres ? "PostgreSQL calculates this total. Edit units or unit price to update it." : "This value is calculated in Google Sheets. Edit its input cells to update it.")
                           : "This cell uses a validation rule that the editor cannot safely change."}
                       </p>
                       <strong>{editor.cell.display || "—"}</strong>
@@ -862,7 +863,7 @@ export default function Workspace() {
                   <Link2 size={13} />
                   {mode === "demo"
                     ? "Demo change only. No Google Sheet will be updated."
-                    : "Save writes this one cell to your original Google Sheet."}
+                    : (isPostgres ? "Save updates this database field and records the change in the audit log." : "Save writes this one cell to your original Google Sheet.")}
                 </div>
               </>
             ) : null}
@@ -882,6 +883,7 @@ export default function Workspace() {
                 !editor?.cell.editable ||
                 saving ||
                 uncertain ||
+                (isPostgres && !editor?.cell.nullable) ||
                 !!editor?.cell.options ||
                 editor?.cell.checkbox
               }
@@ -913,7 +915,8 @@ export default function Workspace() {
           </div>
         </form>
       </dialog>
-      {setup && (
+      {setup && isPostgres && <DatabaseLogin status={status} onClose={() => setSetup(false)} onConnected={async () => { const next = await api("/api/status"); setStatus(next); changeMode("live"); setSetup(false); setRefresh(r => r + 1); }} onLogout={async () => { await api("/api/auth/logout", {method:"POST"}); setStatus({...status,connected:false,email:null}); changeMode("setup"); setSetup(false); }} />}
+      {setup && !isPostgres && (
         <div
           className="setup-overlay"
           onMouseDown={(e) => {
@@ -1060,4 +1063,10 @@ function CellValue({ value, header }) {
   return (
     <span className={value === "" ? "empty-value" : ""}>{value || "—"}</span>
   );
+}
+
+function DatabaseLogin({status,onClose,onConnected,onLogout}) {
+  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  async function submit(e) {e.preventDefault();setBusy(true);setMessage('');try {await api('/api/auth/database',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});setPassword('');await onConnected();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+  return <div className="setup-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><section className="setup-card" role="dialog" aria-modal="true" aria-label="PostgreSQL sign-in"><div className="setup-heading"><span className="setup-logo"><Cloud size={26}/></span><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close setup"><X size={19}/></button></div><span className="eyebrow">YOUR DATA, CONNECTED</span><h2>PostgreSQL workspace.</h2><p>Read and edit your existing NS Labs records. Calculated totals stay managed by the database.</p>{status.connected ? <><div className="setup-callout">Signed in as <b>{status.email}</b></div><button className="button primary full" onClick={onClose}>Return to workspace</button><button className="button full" onClick={async()=>{try{await onLogout();}catch(e){setMessage(e.message);}}}>Sign out</button></> : <form onSubmit={submit} className="database-login"><label htmlFor="db-username">PostgreSQL username</label><input id="db-username" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required maxLength={100} disabled={busy} autoFocus/><label htmlFor="db-password">Password</label><input id="db-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required maxLength={1024} disabled={busy}/><button className="button primary full" disabled={busy||!status.configured}>{busy?'Signing in…':'Sign in'}</button></form>}{message&&<p role="alert" className="editor-error">{message}</p>}<p className="setup-footnote"><LockKeyhole size={11}/> Your password is checked by PostgreSQL and is not retained by the app.</p></section></div>;
 }

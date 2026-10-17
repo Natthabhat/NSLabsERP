@@ -1,4 +1,4 @@
-import { readCell, saveCell } from "../../../lib/sheets.mjs";
+import { readCell, saveCell } from "../../../lib/data.mjs";
 import { checkOrigin, AppError } from "../../../lib/security.mjs";
 import { json, failure } from "../../../lib/http.mjs";
 export const dynamic = "force-dynamic";

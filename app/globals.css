@@ -1794,3 +1794,5 @@ footer b {
     scroll-behavior: auto !important;
   }
 }
+
+.database-login {display:grid;gap:12px;margin-top:24px}.database-login input{padding:12px;border:1px solid #c9d4cc;border-radius:8px;background:#fff;color:#173c31;font:inherit;width:100%}.database-login button{margin-top:10px}

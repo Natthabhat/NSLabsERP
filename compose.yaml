@@ -8,5 +8,12 @@ services:
       - "192.168.31.36:3400:3000"
     env_file:
       - .env.production
+    networks:
+      - database
     cap_drop:
       - ALL
+
+networks:
+  database:
+    external: true
+    name: nslabs-db-admin

@@ -90,7 +90,9 @@ test("encrypted cookies reject tampering, wrong purpose and expiration", () => {
   const value = seal({ email: "test@example.com" }, "session", 60);
   assert.deepEqual(unseal(value, "session"), { email: "test@example.com" });
   assert.equal(unseal(value, "oauth"), null);
-  assert.equal(unseal("a" + value.slice(1), "session"), null);
+  const tampered = Buffer.from(value, "base64url");
+  tampered[0] ^= 1;
+  assert.equal(unseal(tampered.toString("base64url"), "session"), null);
   assert.equal(unseal(seal({}, "session", -1), "session"), null);
   assert.equal(equal("a", "a"), true);
   assert.equal(equal("a", "b"), false);
