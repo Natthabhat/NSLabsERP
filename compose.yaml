@@ -8,7 +8,5 @@ services:
       - "192.168.31.36:3400:3000"
     env_file:
       - .env.production
-    security_opt:
-      - no-new-privileges:true
     cap_drop:
       - ALL
