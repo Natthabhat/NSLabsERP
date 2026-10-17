@@ -55,7 +55,7 @@ Official references: [Next.js installation](https://nextjs.org/docs/app/getting-
 
 ## Docker deployment
 
-The Dockerfile builds and tests the app, then runs Next.js standalone as an unprivileged user. Docker Compose restarts the service automatically and exposes port 3400 on server loopback and its Tailscale address. Deployment follows the [Next.js Docker standalone guidance](https://nextjs.org/docs/app/getting-started/deploying).
+The Dockerfile builds and tests the app, then runs Next.js standalone as an unprivileged user. Docker Compose restarts the service automatically and exposes port 3400 on server loopback and its local network address. Deployment follows the [Next.js Docker standalone guidance](https://nextjs.org/docs/app/getting-started/deploying).
 
 Create `.env.production` on the server with GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, APP_URL, and optionally ALLOWED_EMAILS. This file is excluded from Git and Docker builds. Use a unique session secret of at least 32 characters. APP_URL must be the exact HTTPS origin used in the browser (HTTP is supported only for localhost). Register that origin followed by `/api/auth/callback` in Google OAuth.
 

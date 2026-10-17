@@ -3,7 +3,6 @@ services:
     image: nslabs-erp:local
     build: .
     restart: unless-stopped
-    init: true
     ports:
       - "127.0.0.1:3400:3000"
       - "192.168.31.36:3400:3000"
@@ -13,4 +12,3 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-
