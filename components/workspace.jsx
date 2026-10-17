@@ -275,14 +275,11 @@ export default function Workspace() {
     <div className="app">
       <aside className={mobileNav ? "sidebar mobile-open" : "sidebar"}>
         <a className="brand" href="/" aria-label="NS Labs ERP home">
-          <span className="brand-mark">
-            NS
-            <ArrowUpRight size={15} />
-          </span>
-          <span>
-            <b>NS Labs</b>
-            <small>OPERATIONS WORKSPACE</small>
-          </span>
+          <img
+            src="/logo-white.png"
+            alt="NS Labs"
+            className="brand-logo"
+          />
         </a>
         <div className="workspace-switch">
           <span className="workspace-icon">
@@ -319,7 +316,9 @@ export default function Workspace() {
             <ArrowUpRight size={13} />
           </button>
           <div className="profile">
-            <span>NS</span>
+            <span className="profile-badge">
+              <img src="/icon-white.png" alt="NS" />
+            </span>
             <div>
               <b>NS Labs Studio</b>
               <small>
@@ -347,6 +346,9 @@ export default function Workspace() {
             >
               <Menu size={18} />
             </button>
+            <a href="/" className="topbar-brand" aria-label="NS Labs ERP home">
+              <img src="/logo-black.png" alt="NS Labs" className="topbar-logo" />
+            </a>
             <PanelLeftClose size={16} className="desktop-icon" />
             <span className="divider" />
             <span>Workspace</span>
@@ -930,7 +932,7 @@ export default function Workspace() {
           >
             <div className="setup-heading">
               <span className="setup-logo">
-                <FileSpreadsheet size={26} />
+                <img src="/logo-black.png" alt="NS Labs" />
               </span>
               <button
                 className="icon-button"
@@ -1067,5 +1069,5 @@ function CellValue({ value, header }) {
 function DatabaseLogin({status,onClose,onConnected,onLogout}) {
   const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   async function submit(e) {e.preventDefault();setBusy(true);setMessage('');try {await api('/api/auth/database',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});setPassword('');await onConnected();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
-  return <div className="setup-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><section className="setup-card" role="dialog" aria-modal="true" aria-label="PostgreSQL sign-in"><div className="setup-heading"><span className="setup-logo"><Cloud size={26}/></span><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close setup"><X size={19}/></button></div><span className="eyebrow">YOUR DATA, CONNECTED</span><h2>PostgreSQL workspace.</h2><p>Read and edit your existing NS Labs records. Calculated totals stay managed by the database.</p>{status.connected ? <><div className="setup-callout">Signed in as <b>{status.email}</b></div><button className="button primary full" onClick={onClose}>Return to workspace</button><button className="button full" onClick={async()=>{try{await onLogout();}catch(e){setMessage(e.message);}}}>Sign out</button></> : <form onSubmit={submit} className="database-login"><label htmlFor="db-username">PostgreSQL username</label><input id="db-username" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required maxLength={100} disabled={busy} autoFocus/><label htmlFor="db-password">Password</label><input id="db-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required maxLength={1024} disabled={busy}/><button className="button primary full" disabled={busy||!status.configured}>{busy?'Signing in…':'Sign in'}</button></form>}{message&&<p role="alert" className="editor-error">{message}</p>}<p className="setup-footnote"><LockKeyhole size={11}/> Your password is checked by PostgreSQL and is not retained by the app.</p></section></div>;
+  return <div className="setup-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><section className="setup-card" role="dialog" aria-modal="true" aria-label="PostgreSQL sign-in"><div className="setup-heading"><span className="setup-logo"><img src="/logo-black.png" alt="NS Labs"/></span><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close setup"><X size={19}/></button></div><span className="eyebrow">YOUR DATA, CONNECTED</span><h2>PostgreSQL workspace.</h2><p>Read and edit your existing NS Labs records. Calculated totals stay managed by the database.</p>{status.connected ? <><div className="setup-callout">Signed in as <b>{status.email}</b></div><button className="button primary full" onClick={onClose}>Return to workspace</button><button className="button full" onClick={async()=>{try{await onLogout();}catch(e){setMessage(e.message);}}}>Sign out</button></> : <form onSubmit={submit} className="database-login"><label htmlFor="db-username">PostgreSQL username</label><input id="db-username" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required maxLength={100} disabled={busy} autoFocus/><label htmlFor="db-password">Password</label><input id="db-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required maxLength={1024} disabled={busy}/><button className="button primary full" disabled={busy||!status.configured}>{busy?'Signing in…':'Sign in'}</button></form>}{message&&<p role="alert" className="editor-error">{message}</p>}<p className="setup-footnote"><LockKeyhole size={11}/> Your password is checked by PostgreSQL and is not retained by the app.</p></section></div>;
 }
