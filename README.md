@@ -52,3 +52,11 @@ Tests cover value typing, formula protection, dropdown validation, checkbox mapp
 The earlier hosted website at `ns-labs-erp.goodshore65.chatgpt.site` is a separate deployment and has not been changed by this local project.
 
 Official references: [Next.js installation](https://nextjs.org/docs/app/getting-started/installation), [Google OAuth web server flow](https://developers.google.com/identity/protocols/oauth2/web-server), [Google Sheets batch updates](https://developers.google.com/workspace/sheets/api/guides/batchupdate).
+
+## Docker deployment
+
+The Dockerfile builds and tests the app, then runs Next.js standalone as an unprivileged user. Docker Compose restarts the service automatically and exposes port 3400 on server loopback and its Tailscale address. Deployment follows the [Next.js Docker standalone guidance](https://nextjs.org/docs/app/getting-started/deploying).
+
+Create `.env.production` on the server with GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, APP_URL, and optionally ALLOWED_EMAILS. This file is excluded from Git and Docker builds. Use a unique session secret of at least 32 characters. APP_URL must be the exact HTTPS origin used in the browser (HTTP is supported only for localhost). Register that origin followed by `/api/auth/callback` in Google OAuth.
+
+Run `docker compose up -d --build`. Check `docker compose ps` and `docker compose logs --tail=100 erp`. Rebuild after pulling source changes. This version uses Google Sheets; it does not use PostgreSQL yet.

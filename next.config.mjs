@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const config = {
+  output: "standalone",
   poweredByHeader: false,
   async headers() {
     return [
@@ -19,3 +20,4 @@ const config = {
   },
 };
 export default config;
+
