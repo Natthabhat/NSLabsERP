@@ -294,7 +294,7 @@ export default function Workspace() {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
-          {["Workshop", "Pricing", "Marketplaces"].map((group) => (
+          {["Workshop", "Pricing", "Marketplaces"].filter(group => modules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
               {modules
@@ -585,7 +585,7 @@ export default function Workspace() {
                   <span className="eyebrow">
                     A WORKSPACE THAT FEELS LIKE YOURS
                   </span>
-                  <h3>Your sheet. A better place to work.</h3>
+                  <h3>{isPostgres ? "Your records. Ready to work." : "Your sheet. A better place to work."}</h3>
                   <p>
                     {isPostgres ? "Sign in to read and edit your PostgreSQL records." : "Connect Google Sheets to read and edit your real records."}
                     <br />
@@ -606,8 +606,7 @@ export default function Workspace() {
                     </button>
                   </div>
                   <small>
-                    <LockKeyhole size={11} /> Your Google account controls
-                    access to the sheet.
+                    <LockKeyhole size={11} /> {isPostgres ? "Use your PostgreSQL username and password." : "Your Google account controls access to the sheet."}
                   </small>
                 </div>
               ) : (
