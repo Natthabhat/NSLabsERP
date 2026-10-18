@@ -80,7 +80,8 @@ export default function Workspace() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(false),
     [sortColumn, setSortColumn] = useState(null),
     [sortDirection, setSortDirection] = useState("desc"),
-    [columnFilters, setColumnFilters] = useState({});
+    [columnFilters, setColumnFilters] = useState({}),
+    [manage, setManage] = useState(null);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -295,6 +296,7 @@ export default function Workspace() {
     rowsLabel = data?.total === undefined ? "—" : data.total.toLocaleString();
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      {manage && <RecordManager kind={manage} fields={data?.fields||[]} onClose={()=>setManage(null)} onSubmit={async values=>{await api('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,tab:selected.id,action:manage})});setManage(null);setPage(0);setQuery('');setSearch('');setColumnFilters({});setSortColumn(null);setSortDirection('desc');setRefresh(r=>r+1);notify(manage==='entry'?'New entry saved':'New column added');}} />}
       <aside className={mobileNav ? "sidebar mobile-open" : "sidebar"}>
         <a className="brand" href="/" aria-label="NS Labs ERP home">
           <img
@@ -525,6 +527,10 @@ export default function Workspace() {
             className="records-panel"
             aria-label={`${selected.title} records`}
           >
+            {isPostgres && mode === 'live' && <div className="manage-toolbar">
+              <button className="button" disabled={saving||loading||!data} onClick={()=>setManage('entry')}>+ New entry</button>
+              <button className="button" disabled={saving||loading||!data} onClick={()=>setManage('column')}>+ New column</button>
+            </div>}
             <div className="panel-toolbar">
               <div className="panel-title">
                 <span className="panel-icon">
@@ -655,10 +661,10 @@ export default function Workspace() {
                         </td>
                       </tr>
                     ) : records.length ? (
-                      records.map((record) => (
+                      records.map((record, recordIndex) => (
                         <tr key={record.row}>
                           <td className="row-number">
-                            {String(record.row).padStart(3, "0")}
+                            {(data.page * PAGE_SIZE) + recordIndex + 1}
                           </td>
                           {record.values.map((value, i) => (
                             <td key={i}>
@@ -932,4 +938,17 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
     </div>
     {error?<span className="inline-cell-error" id={id+'-error'} role="alert">{error}</span>:saving?<span className="inline-cell-hint" role="status">Saving…</span>:null}
   </form>;
+}
+
+function RecordManager({kind,fields,onClose,onSubmit}) {
+  const [values,setValues]=useState({}),[label,setLabel]=useState(''),[type,setType]=useState('text'),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const operation=useRef(crypto.randomUUID());
+  async function submit(e) {e.preventDefault();if(busy)return;setBusy(true);setError('');try{await onSubmit(kind==='column'?{label,type,operationId:operation.current}:{values,operationId:operation.current});}catch(e){setError(e.message);}finally{setBusy(false);}}
+  return <div className="setup-overlay"><section className="setup-card record-manager" role="dialog" aria-modal="true" aria-label={kind==='entry'?'New entry':'New column'}><div className="manage-heading"><h2>{kind==='entry'?'New entry':'New column'}</h2><button className="icon-button" aria-label="Close form" disabled={busy} onClick={onClose}><X size={20}/></button></div>
+    <form onSubmit={submit} className="record-form">
+      {kind==='column'?<><label>Column name<input autoFocus required maxLength={60} value={label} onChange={e=>setLabel(e.target.value)} disabled={busy}/></label><label>Data type<select value={type} onChange={e=>setType(e.target.value)} disabled={busy}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="boolean">Checkbox</option></select></label><p>Existing records will have an empty value. Marketplace columns appear in all four marketplace views.</p></>:fields.filter(f=>!f.generated).map(f=><label key={f.key}>{f.label}{!f.nullable&&f.type!=='boolean'?' *':''}
+        {f.options?<select required={!f.nullable} disabled={busy} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value})}><option value="">Select</option>{f.options.map(v=><option key={v}>{v}</option>)}</select>:f.type==='boolean'?<input type="checkbox" disabled={busy} checked={values[f.key]??false} onChange={e=>setValues({...values,[f.key]:e.target.checked})}/>:<input autoFocus={f===fields[0]} disabled={busy} type={f.type==='date'?'date':f.type==='number'?'number':'text'} step={f.integer?'1':'any'} required={!f.nullable} maxLength={f.type==='text'?10000:undefined} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value===''?(f.nullable?null:''):f.type==='number'?Number(e.target.value):e.target.value})}/>}
+      </label>)}
+      {error&&<p role="alert" className="editor-error">{error}</p>}<div className="manage-actions"><button className="button" type="button" disabled={busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy?'Saving...':kind==='column'?'Add column':'Save entry'}</button></div>
+    </form></section></div>;
 }

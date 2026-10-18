@@ -9,7 +9,7 @@ test('record view sorts newest dates first, blanks last and filters before pagin
 });
 test('Postgres sorting is allowlisted and filter values remain parameters with platform isolation',async()=>{
  const calls=[];
- const pool={connect:async()=>({query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.includes('count(*)')?[{count:45}]:[]};},release(){}})};
+ const pool={query:async()=>({rows:[]}),connect:async()=>({query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.includes('count(*)')?[{count:45}]:[]};},release(){}})};
  await readPgRecords(pool,683461259,1,'',{sort:2,direction:'asc',filters:{0:"x' OR 1=1 --"}});
  const select=calls.find(c=>c.sql.includes(' LIMIT '));
  assert.match(select.sql,/platform::text=\$2/);
