@@ -415,7 +415,6 @@ export default function Workspace() {
                 {selected.title}
                 <span className="heading-dot">.</span>
               </h1>
-              {selected.name !== "Cost" && <p>{selected.description}</p>}
             </div>
             <div className="page-actions">
               {isPostgres ? <span className="button"><Cloud size={14} /> PostgreSQL</span> : <a
