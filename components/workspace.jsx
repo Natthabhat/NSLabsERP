@@ -35,7 +35,7 @@ import {
   CheckSquare,
   Save,
 } from "lucide-react";
-import { modules, SOURCE_URL, columnName, PAGE_SIZE } from "../lib/config.mjs";
+import { modules, SOURCE_URL, PAGE_SIZE } from "../lib/config.mjs";
 import { initialDemo, demoRecords, demoCell } from "../lib/demo.mjs";
 const icons = {
   cost: Coins,
@@ -78,12 +78,13 @@ export default function Workspace() {
     [mobileNav, setMobileNav] = useState(false);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
+    [editTarget, setEditTarget] = useState(null),
     [editLoading, setEditLoading] = useState(false),
     [editError, setEditError] = useState(""),
     [draft, setDraft] = useState(""),
     [saving, setSaving] = useState(false),
     [uncertain, setUncertain] = useState(false);
-  const dialog = useRef(null),
+  const saveInFlight = useRef(false),
     editRequest = useRef(0),
     toastTimer = useRef();
   useEffect(() => {
@@ -140,10 +141,12 @@ export default function Workspace() {
     };
   }, [mode, selected, page, query, refresh, demo]);
   useEffect(() => {
-    if (editor || editLoading) {
-      if (!dialog.current.open) dialog.current.showModal();
-    } else if (dialog.current?.open) dialog.current.close();
-  }, [editor, editLoading]);
+    editRequest.current++;
+    setEditor(null);
+    setEditTarget(null);
+    setEditLoading(false);
+    setEditError("");
+  }, [selected.id, page, query, mode, refresh]);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   function notify(text) {
     setToast(text);
@@ -151,7 +154,7 @@ export default function Workspace() {
     toastTimer.current = setTimeout(() => setToast(""), 4500);
   }
   function choose(tab) {
-    if (saving) return;
+    if (saving || saveInFlight.current) return;
     setSelected(tab);
     setPage(0);
     setSearch("");
@@ -169,8 +172,9 @@ export default function Workspace() {
     setMode(next);
   }
   async function openCell(row, column) {
-    if (loading || saving) return;
+    if (loading || saving || saveInFlight.current) return;
     const id = ++editRequest.current;
+    setEditTarget({row, column});
     setEditLoading(true);
     setEditError("");
     setEditor(null);
@@ -183,26 +187,33 @@ export default function Workspace() {
               `/api/cell?tab=${selected.id}&row=${row}&column=${column}`,
             );
       if (id !== editRequest.current) return;
+      if (!result.cell.editable) {
+        setEditTarget(null);
+        notify("This value is calculated or read-only. Edit its input fields instead.");
+        return;
+      }
       setEditor({ ...result, label: data.headers[column - 1] });
       setDraft(result.cell.checkbox ? result.cell.checked : result.cell.value);
     } catch (e) {
       if (id === editRequest.current) {
         setError(e.message);
         setEditor(null);
+        setEditTarget(null);
       }
     } finally {
       if (id === editRequest.current) setEditLoading(false);
     }
   }
   function closeEditor() {
-    if (saving) return;
+    if (saving || saveInFlight.current) return;
     editRequest.current++;
+    setEditTarget(null);
     setEditor(null);
     setEditLoading(false);
     setEditError("");
   }
   async function save(clear = false) {
-    if (!editor || saving || uncertain || !editor.cell.editable) return;
+    if (!editor || saving || saveInFlight.current || uncertain || !editor.cell.editable) return;
     let value = clear
       ? null
       : editor.cell.type === "number" && !editor.cell.options
@@ -214,13 +225,14 @@ export default function Workspace() {
       !editor.cell.options &&
       (draft === "" || !Number.isFinite(value))
     ) {
-      setEditError("Enter a valid number, or use Clear value.");
+      setEditError("Enter a valid number.");
       return;
     }
     if (!clear && editor.cell.options && !editor.cell.options.includes(value)) {
       setEditError("Choose a value from the dropdown.");
       return;
     }
+    saveInFlight.current = true;
     setSaving(true);
     setEditError("");
     try {
@@ -256,6 +268,7 @@ export default function Workspace() {
         notify(status?.backend === "postgres" ? "Saved to PostgreSQL" : "Saved to Google Sheets");
       }
       setEditor(null);
+      setEditTarget(null);
       setRefresh((r) => r + 1);
     } catch (e) {
       setEditError(
@@ -264,6 +277,7 @@ export default function Workspace() {
       );
       setUncertain(true);
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   }
@@ -400,7 +414,7 @@ export default function Workspace() {
                 onClick={() =>
                   mode === "setup" ? setSetup(true) : setRefresh((r) => r + 1)
                 }
-                disabled={loading}
+                disabled={loading || saving}
               >
                 <RefreshCw size={14} className={loading ? "spin" : ""} />
                 {loading ? "Refreshing" : "Refresh data"}
@@ -513,7 +527,7 @@ export default function Workspace() {
                     {selected.name} records{" "}
                     {data && <span className="count-badge">{data.total}</span>}
                   </h2>
-                  <p>Click a value to inspect or edit it.</p>
+                  <p>Click a cell to edit. Enter saves; Escape cancels.</p>
                 </div>
               </div>
               <form
@@ -531,7 +545,7 @@ export default function Workspace() {
                   placeholder="Search this worksheet…"
                   aria-label="Search this worksheet"
                   maxLength={200}
-                  disabled={mode === "setup"}
+                  disabled={mode === "setup" || saving}
                 />
                 {search && (
                   <button
@@ -549,7 +563,7 @@ export default function Workspace() {
                 <button
                   className="search-submit"
                   type="submit"
-                  disabled={mode === "setup" || loading}
+                  disabled={mode === "setup" || loading || saving}
                 >
                   Search
                 </button>
@@ -641,20 +655,20 @@ export default function Workspace() {
                           </td>
                           {record.values.map((value, i) => (
                             <td key={i}>
-                              <button
-                                className={`cell-button ${record.formulas?.[i] ? "formula-cell" : ""}`}
-                                onClick={() => openCell(record.row, i + 1)}
-                                disabled={loading || !!error}
-                                aria-label={`Edit ${data.headers[i]}, row ${record.row}`}
-                              >
-                                <CellValue
-                                  value={value}
-                                  header={data.headers[i]}
-                                />
-                                {record.formulas?.[i] && (
-                                  <LockKeyhole size={10} />
-                                )}
-                              </button>
+                              {editTarget?.row === record.row && editTarget?.column === i + 1 ? (
+                                editLoading ? <span className="inline-loading" role="status"><LoaderCircle className="spin" size={14} /> Reading…</span> : editor ? (
+                                  <InlineCellEditor editor={editor} draft={draft} setDraft={setDraft} saving={saving} uncertain={uncertain} error={editError} onSave={() => save(draft === "" && !!editor.cell.nullable)} onCancel={closeEditor} />
+                                ) : null
+                              ) : (
+                                <button className={"cell-button " + (record.formulas?.[i] ? "formula-cell" : "")}
+                                  onClick={() => openCell(record.row, i + 1)}
+                                  disabled={loading || saving || !!error || !!record.formulas?.[i]}
+                                  title={record.formulas?.[i] ? "Calculated value — edit its input fields" : "Click to edit. Enter saves; Escape cancels."}
+                                  aria-label={(record.formulas?.[i] ? "Calculated " : "Edit ") + data.headers[i] + ", row " + record.row}>
+                                  <CellValue value={value} header={data.headers[i]} />
+                                  {record.formulas?.[i] && <LockKeyhole size={10} />}
+                                </button>
+                              )}
                             </td>
                           ))}
                         </tr>
@@ -693,7 +707,7 @@ export default function Workspace() {
                 <button
                   className="pagination-button"
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={!data || data.page === 0 || loading}
+                  disabled={!data || data.page === 0 || loading || saving}
                 >
                   <ArrowLeft size={13} /> Previous
                 </button>
@@ -704,7 +718,7 @@ export default function Workspace() {
                 <button
                   className="pagination-button"
                   onClick={() => setPage((p) => p + 1)}
-                  disabled={!data || data.page >= data.pages - 1 || loading}
+                  disabled={!data || data.page >= data.pages - 1 || loading || saving}
                 >
                   Next <ArrowRight size={13} />
                 </button>
@@ -735,185 +749,6 @@ export default function Workspace() {
           </footer>
         </main>
       </div>
-      <dialog
-        ref={dialog}
-        className="editor-dialog"
-        onCancel={(e) => {
-          if (saving) e.preventDefault();
-          else closeEditor();
-        }}
-        onClose={() => {
-          if (!saving) {
-            editRequest.current++;
-            setEditor(null);
-            setEditLoading(false);
-          }
-        }}
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            save();
-          }}
-        >
-          <div className="dialog-heading">
-            <div>
-              <span className="eyebrow">
-                {editor
-                  ? `${selected.name.toUpperCase()} / ${columnName(editor.column - 1)}${editor.row}`
-                  : "LOADING CELL"}
-              </span>
-              <h2>{editor?.label || "Inspect value"}</h2>
-              <p>
-                {editor?.record || "Checking the latest value and permissions…"}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={closeEditor}
-              disabled={saving}
-              aria-label="Close editor"
-            >
-              <X size={19} />
-            </button>
-          </div>
-          <div className="dialog-content">
-            {editLoading ? (
-              <div className="dialog-loading">
-                <LoaderCircle className="spin" size={24} />
-                <p>Reading the current value…</p>
-              </div>
-            ) : editor ? (
-              <>
-                {!editor.cell.editable ? (
-                  <div className="readonly-note">
-                    <LockKeyhole size={20} />
-                    <div>
-                      <b>
-                        {editor.cell.formula
-                          ? "Calculated value"
-                          : "Read-only cell"}
-                      </b>
-                      <p>
-                        {editor.cell.formula
-                          ? (isPostgres ? "PostgreSQL calculates this total. Edit units or unit price to update it." : "This value is calculated in Google Sheets. Edit its input cells to update it.")
-                          : "This cell uses a validation rule that the editor cannot safely change."}
-                      </p>
-                      <strong>{editor.cell.display || "—"}</strong>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <label htmlFor="edit-value">{editor.label}</label>
-                    {editor.cell.options ? (
-                      <select
-                        id="edit-value"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        disabled={saving}
-                        autoFocus
-                      >
-                        <option value="" disabled>
-                          Select an option
-                        </option>
-                        {editor.cell.options.map((option) => (
-                          <option key={option}>{option}</option>
-                        ))}
-                      </select>
-                    ) : editor.cell.checkbox ||
-                      editor.cell.type === "boolean" ? (
-                      <label className="checkbox-field">
-                        <input
-                          id="edit-value"
-                          type="checkbox"
-                          checked={!!draft}
-                          onChange={(e) => setDraft(e.target.checked)}
-                          disabled={saving}
-                        />
-                        <CheckSquare size={18} />
-                        <span>{draft ? "Confirmed" : "Not confirmed"}</span>
-                      </label>
-                    ) : (
-                      <input
-                        id="edit-value"
-                        type={
-                          editor.cell.type === "number"
-                            ? "number"
-                            : editor.cell.type === "date"
-                              ? "date"
-                              : "text"
-                        }
-                        step={editor.cell.type === "number" ? "any" : undefined}
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        disabled={saving}
-                        maxLength={10000}
-                        autoFocus
-                      />
-                    )}
-                    <div className="current-value">
-                      <span>Current value</span>
-                      <b>{editor.cell.display || "(empty)"}</b>
-                    </div>
-                  </>
-                )}
-                <div className="edit-note">
-                  <Link2 size={13} />
-                  {mode === "demo"
-                    ? "Demo change only. No Google Sheet will be updated."
-                    : (isPostgres ? "Save updates this database field and records the change in the audit log." : "Save writes this one cell to your original Google Sheet.")}
-                </div>
-              </>
-            ) : null}
-            {editError && (
-              <div className="editor-error" role="alert">
-                <AlertCircle size={15} />
-                <span>{editError}</span>
-              </div>
-            )}
-          </div>
-          <div className="dialog-footer">
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => save(true)}
-              disabled={
-                !editor?.cell.editable ||
-                saving ||
-                uncertain ||
-                (isPostgres && !editor?.cell.nullable) ||
-                !!editor?.cell.options ||
-                editor?.cell.checkbox
-              }
-            >
-              Clear value
-            </button>
-            <div>
-              <button
-                type="button"
-                className="button"
-                onClick={closeEditor}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                className="button primary"
-                type="submit"
-                disabled={!editor?.cell.editable || saving || uncertain}
-              >
-                {saving ? (
-                  <LoaderCircle size={14} className="spin" />
-                ) : (
-                  <Save size={14} />
-                )}{" "}
-                {saving ? "Saving…" : "Save change"}
-              </button>
-            </div>
-          </div>
-        </form>
-      </dialog>
       {setup && isPostgres && <DatabaseLogin status={status} onClose={() => setSetup(false)} onConnected={async () => { const next = await api("/api/status"); setStatus(next); changeMode("live"); setSetup(false); setRefresh(r => r + 1); }} onLogout={async () => { await api("/api/auth/logout", {method:"POST"}); setStatus({...status,connected:false,email:null}); changeMode("setup"); setSetup(false); }} />}
       {setup && !isPostgres && (
         <div
@@ -1068,4 +903,26 @@ function DatabaseLogin({status,onClose,onConnected,onLogout}) {
   const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   async function submit(e) {e.preventDefault();setBusy(true);setMessage('');try {await api('/api/auth/database',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});setPassword('');await onConnected();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
   return <div className="setup-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose();}}><section className="setup-card" role="dialog" aria-modal="true" aria-label="PostgreSQL sign-in"><div className="setup-heading"><span className="setup-logo"><Cloud size={26}/></span><button className="icon-button" onClick={onClose} disabled={busy} aria-label="Close setup"><X size={19}/></button></div><span className="eyebrow">YOUR DATA, CONNECTED</span><h2>PostgreSQL workspace.</h2><p>Read and edit your existing NS Labs records. Calculated totals stay managed by the database.</p>{status.connected ? <><div className="setup-callout">Signed in as <b>{status.email}</b></div><button className="button primary full" onClick={onClose}>Return to workspace</button><button className="button full" onClick={async()=>{try{await onLogout();}catch(e){setMessage(e.message);}}}>Sign out</button></> : <form onSubmit={submit} className="database-login"><label htmlFor="db-username">PostgreSQL username</label><input id="db-username" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required maxLength={100} disabled={busy} autoFocus/><label htmlFor="db-password">Password</label><input id="db-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required maxLength={1024} disabled={busy}/><button className="button primary full" disabled={busy||!status.configured}>{busy?'Signing in…':'Sign in'}</button></form>}{message&&<p role="alert" className="editor-error">{message}</p>}<p className="setup-footnote"><LockKeyhole size={11}/> Your password is checked by PostgreSQL and is not retained by the app.</p></section></div>;
+}
+
+function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,onCancel}) {
+  const input=useRef(null);
+  const id=`inline-${editor.tab}-${editor.row}-${editor.column}`;
+  const blocked=saving||uncertain;
+  useEffect(()=>{input.current?.focus();if(input.current?.type==='text'||input.current?.type==='number')input.current.select();},[]);
+  const common={ref:input,'aria-label':editor.label,'aria-describedby':error?id+'-error':id+'-hint',disabled:blocked};
+  return <form className="inline-cell-editor" noValidate onSubmit={e=>{e.preventDefault();if(!blocked)onSave();}} onKeyDown={e=>{
+    if(e.nativeEvent.isComposing)return;
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!saving)onCancel();}
+    if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat&&!blocked)onSave();}
+  }}>
+    <div className="inline-editor-controls">
+      {editor.cell.options ? <select {...common} value={draft} onChange={e=>setDraft(e.target.value)}><option value="" disabled>Select a value</option>{editor.cell.options.map(value=><option key={value} value={value}>{value}</option>)}</select>
+        : editor.cell.checkbox||editor.cell.type==='boolean' ? <label className="inline-checkbox"><input {...common} type="checkbox" checked={!!draft} onChange={e=>setDraft(e.target.checked)}/><span>{draft?'Confirmed':'Pending'}</span></label>
+        : <input {...common} type={editor.cell.type==='number'?'number':editor.cell.type==='date'?'date':'text'} step={editor.cell.type==='number'?'any':undefined} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={10000}/>}
+      <button className="inline-action" type="submit" aria-label="Save cell" title="Save (Enter)" disabled={blocked}>{saving?<LoaderCircle className="spin" size={15}/>:<Check size={15}/>}</button>
+      <button className="inline-action" type="button" aria-label="Cancel edit" title="Cancel (Escape)" onClick={onCancel} disabled={saving}><X size={15}/></button>
+    </div>
+    {error?<span className="inline-cell-error" id={id+'-error'} role="alert">{error}</span>:<span className="inline-cell-hint" id={id+'-hint'}>{saving?'Saving…':'Enter saves · Esc cancels'}</span>}
+  </form>;
 }
