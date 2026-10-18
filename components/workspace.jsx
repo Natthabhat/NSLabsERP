@@ -417,7 +417,7 @@ export default function Workspace() {
               </h1>
             </div>
             <div className="page-actions">
-              {isPostgres ? <span className="button"><Cloud size={14} /> PostgreSQL</span> : <a
+              {!isPostgres && <a
                 className="button"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -481,19 +481,6 @@ export default function Workspace() {
                 <small>records</small>
               </strong>
 
-            </div>
-            <div className="metric">
-              <div className="metric-top">
-                <span>ACTIVE WORKSHEET</span>
-                <span className="metric-icon">
-                  <Layers3 size={16} />
-                </span>
-              </div>
-              <strong className="text-metric">{selected.name}</strong>
-              <div className="metric-bottom">
-                <FileSpreadsheet size={12} />
-                {selected.group} · {selected.width} columns
-              </div>
             </div>
             <div className="metric accent-metric">
               <div className="metric-top">
@@ -736,28 +723,7 @@ export default function Workspace() {
               </div>
             </div>
           </section>
-          <div className="table-help">
-            <span>
-              <CheckCircle2 size={13} />{" "}
-              {mode === "demo"
-                ? "Demo edits never change your Google Sheet."
-                : (isPostgres ? "Changes save to PostgreSQL. Calculated totals update automatically." : "Edits change one cell at a time. Surrounding formulas stay intact.")}
-            </span>
-            <span>
-              {data?.limited
-                ? "Read limit: first 5,000 rows"
-                : "Built around your workflow."}
-            </span>
-          </div>
-          <footer>
-            <span>
-              NS LABS <b>ERP</b>
-              <span className="footer-separator">/</span> Made to build.
-            </span>
-            <span>
-              Workshop → product → customer <ArrowUpRight size={11} />
-            </span>
-          </footer>
+          <footer><span>NS LABS ERP</span></footer>
         </main>
       </div>
       {setup && isPostgres && <DatabaseLogin status={status} onClose={() => setSetup(false)} onConnected={async () => { const next = await api("/api/status"); setStatus(next); changeMode("live"); setSetup(false); setRefresh(r => r + 1); }} onLogout={async () => { await api("/api/auth/logout", {method:"POST"}); setStatus({...status,connected:false,email:null}); changeMode("setup"); setSetup(false); }} />}
