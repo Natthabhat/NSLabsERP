@@ -491,10 +491,10 @@ export default function Workspace() {
               </div>
             </div>
           </div>
-          {isPostgres && data?.categoryLabel && <details className="category-summary" key={selected.id}>
-            <summary><span>{data.categoryLabel} breakdown</span><small>{data.categories.length} categories</small><ChevronDown size={17}/></summary>
-            <div className="category-summary-content"><table><thead><tr><th>{data.categoryLabel}</th><th>Records</th>{data.quantityLabel&&<th>{data.quantityLabel}</th>}<th>Amount (THB)</th></tr></thead><tbody>{data.categories.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':category.name}</td><td>{category.records}</td>{data.quantityLabel&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{money(category.amount)}</td></tr>)}</tbody></table>{!data.categories.length&&<p>No matching records.</p>}</div>
-          </details>}
+          {isPostgres && data?.categoryLabel && [{label:data.categoryLabel,rows:data.categories,quantity:data.quantityLabel},...(data.productCategories?[{label:'Product code',rows:data.productCategories}]:[])].map(group=><details className="category-summary" key={selected.id+'-'+group.label}>
+            <summary><span>{group.label} breakdown</span><small>{group.rows.length} categories</small><ChevronDown size={17}/></summary>
+            <div className="category-summary-content"><table><thead><tr><th>{group.label}</th><th>Records</th>{group.quantity&&<th>{group.quantity}</th>}<th>Amount (THB)</th></tr></thead><tbody>{group.rows.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':category.name}</td><td>{category.records}</td>{group.quantity&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{money(category.amount)}</td></tr>)}</tbody></table>{!group.rows.length&&<p>No matching records.</p>}</div>
+          </details>)}
           <section
             className="records-panel"
             aria-label={`${selected.title} records`}
