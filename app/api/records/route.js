@@ -9,6 +9,7 @@ export async function GET(request) {
         Number(p.get("tab")),
         Number(p.get("page") || 0),
         p.get("query") || "",
+        {sort:p.has("sort")?Number(p.get("sort")):null,direction:p.get("direction")||"desc",filters:JSON.parse(p.get("filters")||"{}")},
       ),
     );
   } catch (e) {

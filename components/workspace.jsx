@@ -77,7 +77,10 @@ export default function Workspace() {
     [toast, setToast] = useState(""),
     [setup, setSetup] = useState(false),
     [mobileNav, setMobileNav] = useState(false),
-    [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false),
+    [sortColumn, setSortColumn] = useState(null),
+    [sortDirection, setSortDirection] = useState("desc"),
+    [columnFilters, setColumnFilters] = useState({});
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -122,9 +125,9 @@ export default function Workspace() {
     setError("");
     const load =
       mode === "demo"
-        ? Promise.resolve(demoRecords(demo, selected, page, query))
+        ? Promise.resolve(demoRecords(demo, selected, page, query, {sort:sortColumn,direction:sortDirection,filters:columnFilters}))
         : api(
-            `/api/records?tab=${selected.id}&page=${page}&query=${encodeURIComponent(query)}`,
+            `/api/records?tab=${selected.id}&page=${page}&query=${encodeURIComponent(query)}&direction=${sortDirection}&filters=${encodeURIComponent(JSON.stringify(columnFilters))}${sortColumn===null?"":`&sort=${sortColumn}`}`,
             { signal: controller.signal },
           );
     load
@@ -141,14 +144,14 @@ export default function Workspace() {
       active = false;
       controller.abort();
     };
-  }, [mode, selected, page, query, refresh, demo]);
+  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters]);
   useEffect(() => {
     editRequest.current++;
     setEditor(null);
     setEditTarget(null);
     setEditLoading(false);
     setEditError("");
-  }, [selected.id, page, query, mode, refresh]);
+  }, [selected.id, page, query, mode, refresh, sortColumn, sortDirection, columnFilters]);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
   function notify(text) {
     setToast(text);
@@ -157,6 +160,9 @@ export default function Workspace() {
   }
   function choose(tab) {
     if (saving || saveInFlight.current) return;
+    setSortColumn(null);
+    setSortDirection("desc");
+    setColumnFilters({});
     setSelected(tab);
     setPage(0);
     setSearch("");
@@ -407,7 +413,7 @@ export default function Workspace() {
                 {selected.title}
                 <span className="heading-dot">.</span>
               </h1>
-              <p>{selected.description}</p>
+              {selected.name !== "Cost" && <p>{selected.description}</p>}
             </div>
             <div className="page-actions">
               {isPostgres ? <span className="button"><Cloud size={14} /> PostgreSQL</span> : <a
@@ -473,14 +479,7 @@ export default function Workspace() {
                 {rowsLabel}
                 <small>records</small>
               </strong>
-              <div className="metric-bottom">
-                <span className="mini-dot" />
-                {mode === "demo"
-                  ? "Sample dataset"
-                  : mode === "live"
-                    ? "From your primary table"
-                    : "Connect to load records"}
-              </div>
+
             </div>
             <div className="metric">
               <div className="metric-top">
@@ -536,7 +535,7 @@ export default function Workspace() {
                     {selected.name} records{" "}
                     {data && <span className="count-badge">{data.total}</span>}
                   </h2>
-                  <p>Click a cell to edit.</p>
+
                 </div>
               </div>
               <form
@@ -579,14 +578,11 @@ export default function Workspace() {
               </form>
             </div>
             <div className="table-meta">
-              <span>
-                <span className={`mini-dot ${fresh && data ? "green" : ""}`} />
-                {mode === "demo"
-                  ? "SAMPLE DATA"
-                  : data
-                    ? "LIVE WORKSHEET"
-                    : "WORKSHEET PREVIEW"}
-              </span>
+              <div className="record-sort-controls">
+                <label>Sort by <select aria-label="Sort by" disabled={saving} value={sortColumn ?? "latest"} onChange={e=>{setSortColumn(e.target.value==='latest'?null:Number(e.target.value));setSortDirection('desc');setPage(0);}}><option value="latest">Time - latest first</option>{data?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}</select></label>
+                <button disabled={saving} onClick={()=>{setSortDirection(sortDirection==='desc'?'asc':'desc');setPage(0);}} aria-label="Reverse sort direction">{sortDirection==='desc'?'Descending':'Ascending'}</button>
+                {Object.keys(columnFilters).length>0&&<button disabled={saving} onClick={()=>{setColumnFilters({});setPage(0);}}>Clear filters</button>}
+              </div>
               <span>
                 <LockKeyhole size={11} /> {isPostgres ? "Calculated totals are read-only" : "Formula cells are read-only"}
               </span>
@@ -638,9 +634,11 @@ export default function Workspace() {
                     <tr>
                       <th className="row-number">ROW</th>
                       {data?.headers.map((h, i) => (
-                        <th key={i}>
-                          {h}
-                          {records.some(record => record.formulas?.[i]) ? <LockKeyhole size={12} aria-label="Calculated column" /> : <ChevronsUpDown size={10} />}
+                        <th key={i} aria-sort={(sortColumn ?? data.sort)===i?(sortDirection==='asc'?'ascending':'descending'):'none'}>
+                          <button className="column-sort" disabled={saving} onClick={()=>{setSortDirection((sortColumn ?? data.sort)===i&&sortDirection==='desc'?'asc':'desc');setSortColumn(i);setPage(0);}}>
+                            {h}{records.some(record=>record.formulas?.[i])&&<LockKeyhole size={12} aria-label="Calculated column"/>}{(sortColumn ?? data.sort)===i?(sortDirection==='desc'?' ↓':' ↑'):<ChevronsUpDown size={10}/>}
+                          </button>
+                          {data.fields?.[i]?.options ? <select aria-label={`Filter ${h}`} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}><option value="">All</option>{data.fields[i].options.map(option=><option key={option}>{option}</option>)}</select> : <input aria-label={`Filter ${h}`} placeholder="Filter…" type={data.fields?.[i]?.type==='date'?'date':'search'} maxLength={200} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}/>}
                         </th>
                       ))}
                     </tr>

@@ -1869,3 +1869,10 @@ input::placeholder {color:#202020;}
   .sidebar-collapsed .profile {justify-content:center;padding:16px 0 0;}
 }
 @media(max-width:650px) {.sidebar-toggle {display:none;}}
+
+.column-sort {display:flex;align-items:center;gap:5px;border:0;padding:0;background:none;color:inherit;font:inherit;text-align:left;text-transform:inherit;cursor:pointer;white-space:nowrap;}
+thead th > input,thead th > select {display:block;margin-top:9px;width:100%;min-width:95px;max-width:200px;border:1px solid #ccc;border-radius:4px;padding:5px 7px;background:#fff;color:#333;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;}
+.record-sort-controls {display:flex;align-items:center;gap:12px;flex-wrap:wrap;text-transform:none;letter-spacing:normal;}
+.record-sort-controls label {display:flex;align-items:center;gap:7px;}
+.record-sort-controls select,.record-sort-controls button {border:1px solid #ccc;border-radius:5px;padding:6px 9px;background:white;color:#333;font-size:13px;}
+.table-meta {gap:12px;flex-wrap:wrap;}
