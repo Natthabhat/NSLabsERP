@@ -308,9 +308,6 @@ export default function Workspace() {
             className="brand-logo"
           />
         </a>
-        <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed}>
-          {sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}<span>Collapse sidebar</span>
-        </button>
         <div className="workspace-switch">
           <span className="workspace-icon">
             <Box size={15} />
@@ -344,22 +341,11 @@ export default function Workspace() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button title="Connection settings" aria-label="Connection settings" onClick={() => setSetup(true)}>
-            <Settings2 size={16} /><span>Connection settings</span>{" "}
-            <ArrowUpRight size={13} />
+          <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
+            <span className="profile-badge"><img src="/icon.png" alt="" /></span>
+            <span className="profile-settings-label"><b>NS Labs Studio</b><small>Connection settings</small></span>
+            <Settings2 size={16} />
           </button>
-          <div className="profile">
-            <span className="profile-badge">
-              <img src="/icon.png" alt="NS" />
-            </span>
-            <div>
-              <b>NS Labs Studio</b>
-              <small>
-                {mode === "live" ? (isPostgres ? "PostgreSQL connected" : "Google connected") : "Local workspace"}
-              </small>
-            </div>
-            <span className="online-dot" />
-          </div>
         </div>
       </aside>
       {mobileNav && (
@@ -389,16 +375,6 @@ export default function Workspace() {
             <b>{dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
-            <span
-              className={`connection-pill ${mode === "live" ? "connected" : ""}`}
-            >
-              <span />
-              {mode === "live"
-                ? (isPostgres ? "PostgreSQL connected" : "Google Sheets connected")
-                : mode === "demo"
-                  ? "Demo workspace"
-                  : "Not connected"}
-            </span>
             <button
               className="icon-button"
               aria-label="Connection settings"
