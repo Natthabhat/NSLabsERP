@@ -83,7 +83,8 @@ export default function Workspace() {
     [sortDirection, setSortDirection] = useState("desc"),
     [columnFilters, setColumnFilters] = useState({}),
     [manage, setManage] = useState(null),
-    [dashboard, setDashboard] = useState(false);
+    [dashboard, setDashboard] = useState(false),
+    [selectionsView,setSelectionsView] = useState(false);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -166,6 +167,7 @@ export default function Workspace() {
     setSortColumn(null);
     setSortDirection("desc");
     setColumnFilters({});
+    setSelectionsView(false);
     setDashboard(false);
     setSelected(tab);
     setPage(0);
@@ -318,7 +320,7 @@ export default function Workspace() {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
-          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
+          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
           {["Workshop", "Pricing", "Marketplaces"].filter(group => modules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
@@ -329,18 +331,19 @@ export default function Workspace() {
                     key={tab.id}
                     title={tab.title}
                     aria-label={tab.title}
-                    className={`nav-item ${!dashboard && selected.id === tab.id ? "active" : ""}`}
+                    className={`nav-item ${!dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
                     <MiniIcon tab={tab} size={16} />
                     <span>{tab.title}</span>
-                    {!dashboard && selected.id === tab.id && <span className="active-dot" />}
+                    {!dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
                   </button>
                 ))}
             </section>
           ))}
         </nav>
         <div className="sidebar-bottom">
+          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
           <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
             <span className="profile-badge"><img src="/icon.png" alt="" /></span>
             <span className="profile-settings-label"><b>NS Labs Studio</b><small>Connection settings</small></span>
@@ -372,7 +375,7 @@ export default function Workspace() {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{dashboard?"Dashboard":selected.title}</b>
+            <b>{selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <button
@@ -385,7 +388,7 @@ export default function Workspace() {
           </div>
         </header>
         <main>
-          {dashboard ? <DashboardView/> : <>
+          {selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -493,7 +496,7 @@ export default function Workspace() {
           </div>
           {isPostgres && data?.categoryLabel && [{label:data.categoryLabel,rows:data.categories,quantity:data.quantityLabel},...(data.productCategories?[{label:'Product code',rows:data.productCategories}]:[])].map(group=><details className="category-summary" key={selected.id+'-'+group.label}>
             <summary><span>{group.label} breakdown</span><small>{group.rows.length} categories</small><ChevronDown size={17}/></summary>
-            <div className="category-summary-content"><table><thead><tr><th>{group.label}</th><th>Records</th>{group.quantity&&<th>{group.quantity}</th>}<th>Amount (THB)</th></tr></thead><tbody>{group.rows.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':category.name}</td><td>{category.records}</td>{group.quantity&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{money(category.amount)}</td></tr>)}</tbody></table>{!group.rows.length&&<p>No matching records.</p>}</div>
+            <div className="category-summary-content"><table><thead><tr><th>{group.label}</th><th>Records</th>{group.quantity&&<th>{group.quantity}</th>}<th>Amount (THB)</th></tr></thead><tbody>{group.rows.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':data.fields?.find(f=>f.label===group.label)?.optionLabels?.[category.name]||category.name}</td><td>{category.records}</td>{group.quantity&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{money(category.amount)}</td></tr>)}</tbody></table>{!group.rows.length&&<p>No matching records.</p>}</div>
           </details>)}
           <section
             className="records-panel"
@@ -616,7 +619,7 @@ export default function Workspace() {
                           <button className="column-sort" disabled={saving} onClick={()=>{setSortDirection((sortColumn ?? data.sort)===i&&sortDirection==='desc'?'asc':'desc');setSortColumn(i);setPage(0);}}>
                             {h}{records.some(record=>record.formulas?.[i])&&<LockKeyhole size={12} aria-label="Calculated column"/>}{(sortColumn ?? data.sort)===i?(sortDirection==='desc'?' ↓':' ↑'):<ChevronsUpDown size={10}/>}
                           </button>
-                          {data.fields?.[i]?.options ? <select aria-label={`Filter ${h}`} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}><option value="">All</option>{data.fields[i].options.map(option=><option key={option}>{option}</option>)}</select> : <input aria-label={`Filter ${h}`} placeholder="Filter…" type={data.fields?.[i]?.type==='date'?'date':'search'} maxLength={200} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}/>}
+                          {data.fields?.[i]?.options ? <select aria-label={`Filter ${h}`} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}><option value="">All</option>{data.fields[i].options.map(option=><option key={option} value={option}>{data.fields[i].optionLabels?.[option]||option}</option>)}</select> : <input aria-label={`Filter ${h}`} placeholder="Filter…" type={data.fields?.[i]?.type==='date'?'date':'search'} maxLength={200} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}/>}
                         </th>
                       ))}
                     </tr>
@@ -650,7 +653,7 @@ export default function Workspace() {
                                   disabled={loading || saving || !!error || !!record.formulas?.[i]}
                                   title={record.formulas?.[i] ? "Calculated value — edit its input fields" : "Click to edit."}
                                   aria-label={(record.formulas?.[i] ? "Calculated " : "Edit ") + data.headers[i] + ", row " + record.row}>
-                                  <CellValue value={value} header={data.headers[i]} />
+                                  <CellValue value={data.fields?.[i]?.optionLabels?.[value]||value} header={data.headers[i]} />
                                 </button>
                               )}
                             </td>
@@ -882,7 +885,7 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
     if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat&&!blocked)commit();}
   }}>
     <div className="inline-editor-controls">
-      {editor.cell.options ? <select {...common} value={draft} onChange={e=>setDraft(e.target.value)}><option value="" disabled>Select a value</option>{editor.cell.options.map(value=><option key={value} value={value}>{value}</option>)}</select>
+      {editor.cell.options ? <select {...common} value={draft} onChange={e=>setDraft(e.target.value)}><option value="" disabled>Select a value</option>{editor.cell.options.map(value=><option key={value} value={value}>{editor.cell.optionLabels?.[value]||value}</option>)}</select>
         : editor.cell.checkbox||editor.cell.type==='boolean' ? <label className="inline-checkbox"><input {...common} type="checkbox" checked={!!draft} onChange={e=>setDraft(e.target.checked)}/><span>{draft?'Confirmed':'Pending'}</span></label>
         : <input {...common} type={editor.cell.type==='number'?'number':editor.cell.type==='date'?'date':'text'} step={editor.cell.type==='number'?'any':undefined} value={draft} onInput={e=>setDraft(e.currentTarget.value)} onChange={e=>setDraft(e.target.value)} maxLength={10000}/>}
       <button className="inline-action" type="submit" aria-label="Save cell" title="Save (Enter)" disabled={blocked}>{saving?<LoaderCircle className="spin" size={15}/>:<Check size={15}/>}</button>
@@ -899,7 +902,7 @@ function RecordManager({kind,fields,onClose,onSubmit}) {
   return <div className="setup-overlay"><section className="setup-card record-manager" role="dialog" aria-modal="true" aria-label={kind==='entry'?'New entry':'New column'}><div className="manage-heading"><h2>{kind==='entry'?'New entry':'New column'}</h2><button className="icon-button" aria-label="Close form" disabled={busy} onClick={onClose}><X size={20}/></button></div>
     <form onSubmit={submit} className="record-form">
       {kind==='column'?<><label>Column name<input autoFocus required maxLength={60} value={label} onChange={e=>setLabel(e.target.value)} disabled={busy}/></label><label>Data type<select value={type} onChange={e=>setType(e.target.value)} disabled={busy}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="boolean">Checkbox</option></select></label><p>Existing records will have an empty value. Marketplace columns appear in all four marketplace views.</p></>:fields.filter(f=>!f.generated).map(f=><label key={f.key}>{f.label}{!f.nullable&&f.type!=='boolean'?' *':''}
-        {f.options?<select required={!f.nullable} disabled={busy} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value})}><option value="">Select</option>{f.options.map(v=><option key={v}>{v}</option>)}</select>:f.type==='boolean'?<input type="checkbox" disabled={busy} checked={values[f.key]??false} onChange={e=>setValues({...values,[f.key]:e.target.checked})}/>:<input autoFocus={f===fields[0]} disabled={busy} type={f.type==='date'?'date':f.type==='number'?'number':'text'} step={f.integer?'1':'any'} required={!f.nullable} maxLength={f.type==='text'?10000:undefined} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value===''?(f.nullable?null:''):f.type==='number'?Number(e.target.value):e.target.value})}/>}
+        {f.options?<select required={!f.nullable} disabled={busy} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value})}><option value="">Select</option>{f.options.map(v=><option key={v} value={v}>{f.optionLabels?.[v]||v}</option>)}</select>:f.type==='boolean'?<input type="checkbox" disabled={busy} checked={values[f.key]??false} onChange={e=>setValues({...values,[f.key]:e.target.checked})}/>:<input autoFocus={f===fields[0]} disabled={busy} type={f.type==='date'?'date':f.type==='number'?'number':'text'} step={f.integer?'1':'any'} required={!f.nullable} maxLength={f.type==='text'?10000:undefined} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value===''?(f.nullable?null:''):f.type==='number'?Number(e.target.value):e.target.value})}/>}
       </label>)}
       {error&&<p role="alert" className="editor-error">{error}</p>}<div className="manage-actions"><button className="button" type="button" disabled={busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy?'Saving...':kind==='column'?'Add column':'Save entry'}</button></div>
     </form></section></div>;
@@ -918,4 +921,16 @@ function DashboardView(){
  <div className="dashboard-breakdowns">{[['Sales by platform',data.platforms],['Spending by category',data.categories],['Filament by material',data.materials]].map(([title,rows])=><section className="dashboard-panel" key={title}><h2>{title}</h2><table><thead><tr><th>Name</th><th>Amount (THB)</th></tr></thead><tbody>{rows.map(row=><tr key={row.name}><td>{row.name}</td><td>{money(row.amount)}</td></tr>)}</tbody></table>{!rows.length&&<p>No records yet.</p>}</section>)}</div>
  </>}
  </section>;
+}
+
+function SelectionManager({onSaved}){
+ const [options,setOptions]=useState([]),[list,setList]=useState('product_code'),[editing,setEditing]=useState(null),[name,setName]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ async function load(){const data=await api('/api/selections');setOptions(data.options);}
+ useEffect(()=>{load().catch(e=>setError(e.message));},[]);
+ async function save(e){e.preventDefault();if(busy)return;setBusy(true);setError('');try{await api('/api/selections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({list,value:editing||name.trim(),label:name.trim(),operationId:crypto.randomUUID()})});await load();onSaved();setName('');setEditing(null);setNotice('Selection saved.');}catch(e){setError(e.message);}finally{setBusy(false);}}
+ return <section><div className="page-heading"><h1>Manage selections</h1></div><section className="dashboard-panel"><label>Selection list <select aria-label="Selection list" disabled={busy} value={list} onChange={e=>{setList(e.target.value);setEditing(null);setName('');setNotice('');}}><option value="product_code">Product codes</option><option value="platform">Platforms</option><option value="filament_type">Filament types</option><option value="category">Cost categories</option></select></label>
+ <p className="dashboard-note">Rename a label without changing the stored values in existing records. New options become available in filters, new entries, and cell editing.</p>
+ <form className="selection-form" onSubmit={save}><label>{editing?'Edit label':'New selection'}<input aria-label="Selection name" maxLength={60} required value={name} disabled={busy} onChange={e=>setName(e.target.value)}/></label><button className="button" disabled={busy}>{busy?'Saving...':editing?'Save label':'Add selection'}</button>{editing&&<button className="button" type="button" disabled={busy} onClick={()=>{setEditing(null);setName('');}}>Cancel</button>}</form>
+ {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
+ <table><thead><tr><th>Label</th><th>Stored value</th><th/></tr></thead><tbody>{options.filter(o=>o.list_key===list).map(o=><tr key={o.option_value}><td>{o.label}</td><td>{o.option_value}</td><td><button className="button" disabled={busy} aria-label={'Edit '+o.label} onClick={()=>{setEditing(o.option_value);setName(o.label);setNotice('');}}>Edit</button></td></tr>)}</tbody></table></section></section>;
 }
