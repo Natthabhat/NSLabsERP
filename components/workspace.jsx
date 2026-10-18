@@ -450,7 +450,7 @@ export default function Workspace() {
             </div>
           )}
           <div className="metrics">
-            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.name==='ST log'?'Sales revenue':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
+            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.id===1270018478?'Sales revenue':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
             <div className="metric">
               <div className="metric-top">
                 <span>{query ? "MATCHING RECORDS" : "TOTAL RECORDS"}</span>
