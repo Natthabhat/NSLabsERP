@@ -212,18 +212,18 @@ export default function Workspace() {
     setEditLoading(false);
     setEditError("");
   }
-  async function save(clear = false) {
+  async function save(clear = false, nextDraft = draft) {
     if (!editor || saving || saveInFlight.current || uncertain || !editor.cell.editable) return;
     let value = clear
       ? null
       : editor.cell.type === "number" && !editor.cell.options
-        ? Number(draft)
-        : draft;
+        ? Number(nextDraft)
+        : nextDraft;
     if (
       !clear &&
       editor.cell.type === "number" &&
       !editor.cell.options &&
-      (draft === "" || !Number.isFinite(value))
+      (nextDraft === "" || !Number.isFinite(value))
     ) {
       setEditError("Enter a valid number.");
       return;
@@ -657,7 +657,7 @@ export default function Workspace() {
                             <td key={i}>
                               {editTarget?.row === record.row && editTarget?.column === i + 1 ? (
                                 editLoading ? <span className="inline-loading" role="status"><LoaderCircle className="spin" size={14} /> Reading…</span> : editor ? (
-                                  <InlineCellEditor editor={editor} draft={draft} setDraft={setDraft} saving={saving} uncertain={uncertain} error={editError} onSave={() => save(draft === "" && !!editor.cell.nullable)} onCancel={closeEditor} />
+                                  <InlineCellEditor editor={editor} draft={draft} setDraft={setDraft} saving={saving} uncertain={uncertain} error={editError} onSave={(value) => save(value === "" && !!editor.cell.nullable, value)} onCancel={closeEditor} />
                                 ) : null
                               ) : (
                                 <button className={"cell-button " + (record.formulas?.[i] ? "formula-cell" : "")}
@@ -909,17 +909,18 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
   const input=useRef(null);
   const id=`inline-${editor.tab}-${editor.row}-${editor.column}`;
   const blocked=saving||uncertain;
+  const commit=()=>{if(!blocked&&input.current)onSave(input.current.type==='checkbox'?input.current.checked:input.current.value);};
   useEffect(()=>{input.current?.focus();if(input.current?.type==='text'||input.current?.type==='number')input.current.select();},[]);
   const common={ref:input,'aria-label':editor.label,'aria-describedby':error?id+'-error':id+'-hint',disabled:blocked};
-  return <form className="inline-cell-editor" noValidate onSubmit={e=>{e.preventDefault();if(!blocked)onSave();}} onKeyDown={e=>{
+  return <form className="inline-cell-editor" noValidate onSubmit={e=>{e.preventDefault();if(!blocked)commit();}} onKeyDown={e=>{
     if(e.nativeEvent.isComposing)return;
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!saving)onCancel();}
-    if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat&&!blocked)onSave();}
+    if(e.key==='Enter'){e.preventDefault();e.stopPropagation();if(!e.repeat&&!blocked)commit();}
   }}>
     <div className="inline-editor-controls">
       {editor.cell.options ? <select {...common} value={draft} onChange={e=>setDraft(e.target.value)}><option value="" disabled>Select a value</option>{editor.cell.options.map(value=><option key={value} value={value}>{value}</option>)}</select>
         : editor.cell.checkbox||editor.cell.type==='boolean' ? <label className="inline-checkbox"><input {...common} type="checkbox" checked={!!draft} onChange={e=>setDraft(e.target.checked)}/><span>{draft?'Confirmed':'Pending'}</span></label>
-        : <input {...common} type={editor.cell.type==='number'?'number':editor.cell.type==='date'?'date':'text'} step={editor.cell.type==='number'?'any':undefined} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={10000}/>}
+        : <input {...common} type={editor.cell.type==='number'?'number':editor.cell.type==='date'?'date':'text'} step={editor.cell.type==='number'?'any':undefined} value={draft} onInput={e=>setDraft(e.currentTarget.value)} onChange={e=>setDraft(e.target.value)} maxLength={10000}/>}
       <button className="inline-action" type="submit" aria-label="Save cell" title="Save (Enter)" disabled={blocked}>{saving?<LoaderCircle className="spin" size={15}/>:<Check size={15}/>}</button>
       <button className="inline-action" type="button" aria-label="Cancel edit" title="Cancel (Escape)" onClick={onCancel} disabled={saving}><X size={15}/></button>
     </div>
