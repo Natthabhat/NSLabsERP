@@ -26,6 +26,7 @@ import {
   LoaderCircle,
   Menu,
   PanelLeftClose,
+  PanelLeftOpen,
   FileSpreadsheet,
   SlidersHorizontal,
   Link2,
@@ -75,7 +76,8 @@ export default function Workspace() {
     [refresh, setRefresh] = useState(0),
     [toast, setToast] = useState(""),
     [setup, setSetup] = useState(false),
-    [mobileNav, setMobileNav] = useState(false);
+    [mobileNav, setMobileNav] = useState(false),
+    [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -286,15 +288,18 @@ export default function Workspace() {
     records = data?.rows || [],
     rowsLabel = data?.total === undefined ? "—" : data.total.toLocaleString();
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className={mobileNav ? "sidebar mobile-open" : "sidebar"}>
         <a className="brand" href="/" aria-label="NS Labs ERP home">
           <img
-            src="/logo-black.png"
+            src="/logo-white.png"
             alt="NS Labs"
             className="brand-logo"
           />
         </a>
+        <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed}>
+          {sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}<span>Collapse sidebar</span>
+        </button>
         <div className="workspace-switch">
           <span className="workspace-icon">
             <Box size={15} />
@@ -313,6 +318,8 @@ export default function Workspace() {
                 .map((tab) => (
                   <button
                     key={tab.id}
+                    title={tab.title}
+                    aria-label={tab.title}
                     className={`nav-item ${selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
@@ -325,8 +332,8 @@ export default function Workspace() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button onClick={() => setSetup(true)}>
-            <Settings2 size={16} /> Connection settings{" "}
+          <button title="Connection settings" aria-label="Connection settings" onClick={() => setSetup(true)}>
+            <Settings2 size={16} /><span>Connection settings</span>{" "}
             <ArrowUpRight size={13} />
           </button>
           <div className="profile">
@@ -363,7 +370,7 @@ export default function Workspace() {
             <a href="/" className="topbar-brand" aria-label="NS Labs ERP home">
               <img src="/logo-black.png" alt="NS Labs" className="topbar-logo" />
             </a>
-            <PanelLeftClose size={16} className="desktop-icon" />
+            <button className="icon-button desktop-icon" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!sidebarCollapsed}>{sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}</button>
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
@@ -529,7 +536,7 @@ export default function Workspace() {
                     {selected.name} records{" "}
                     {data && <span className="count-badge">{data.total}</span>}
                   </h2>
-                  <p>Click a cell to edit. Enter saves; Escape cancels.</p>
+                  <p>Click a cell to edit.</p>
                 </div>
               </div>
               <form
@@ -633,7 +640,7 @@ export default function Workspace() {
                       {data?.headers.map((h, i) => (
                         <th key={i}>
                           {h}
-                          <ChevronsUpDown size={10} />
+                          {records.some(record => record.formulas?.[i]) ? <LockKeyhole size={12} aria-label="Calculated column" /> : <ChevronsUpDown size={10} />}
                         </th>
                       ))}
                     </tr>
@@ -665,10 +672,9 @@ export default function Workspace() {
                                 <button className={"cell-button " + (record.formulas?.[i] ? "formula-cell" : "")}
                                   onClick={() => openCell(record.row, i + 1)}
                                   disabled={loading || saving || !!error || !!record.formulas?.[i]}
-                                  title={record.formulas?.[i] ? "Calculated value — edit its input fields" : "Click to edit. Enter saves; Escape cancels."}
+                                  title={record.formulas?.[i] ? "Calculated value — edit its input fields" : "Click to edit."}
                                   aria-label={(record.formulas?.[i] ? "Calculated " : "Edit ") + data.headers[i] + ", row " + record.row}>
                                   <CellValue value={value} header={data.headers[i]} />
-                                  {record.formulas?.[i] && <LockKeyhole size={10} />}
                                 </button>
                               )}
                             </td>
@@ -913,7 +919,7 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
   const blocked=saving||uncertain;
   const commit=()=>{if(!blocked&&input.current)onSave(input.current.type==='checkbox'?input.current.checked:input.current.value);};
   useEffect(()=>{input.current?.focus();if(input.current?.type==='text'||input.current?.type==='number')input.current.select();},[]);
-  const common={ref:input,'aria-label':editor.label,'aria-describedby':error?id+'-error':id+'-hint',disabled:blocked};
+  const common={ref:input,'aria-label':editor.label,'aria-describedby':error?id+'-error':undefined,disabled:blocked};
   return <form className="inline-cell-editor" noValidate onSubmit={e=>{e.preventDefault();if(!blocked)commit();}} onKeyDown={e=>{
     if(e.nativeEvent.isComposing)return;
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!saving)onCancel();}
@@ -926,6 +932,6 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
       <button className="inline-action" type="submit" aria-label="Save cell" title="Save (Enter)" disabled={blocked}>{saving?<LoaderCircle className="spin" size={15}/>:<Check size={15}/>}</button>
       <button className="inline-action" type="button" aria-label="Cancel edit" title="Cancel (Escape)" onClick={onCancel} disabled={saving}><X size={15}/></button>
     </div>
-    {error?<span className="inline-cell-error" id={id+'-error'} role="alert">{error}</span>:<span className="inline-cell-hint" id={id+'-hint'}>{saving?'Saving…':'Enter saves · Esc cancels'}</span>}
+    {error?<span className="inline-cell-error" id={id+'-error'} role="alert">{error}</span>:saving?<span className="inline-cell-hint" role="status">Saving…</span>:null}
   </form>;
 }

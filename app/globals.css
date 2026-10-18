@@ -1843,3 +1843,29 @@ input::placeholder {color:#202020;}
 .profile-badge img {width:23px;height:23px;object-fit:contain;display:block;}
 .setup-logo img {width:36px;height:36px;object-fit:contain;display:block;}
 @media(max-width:650px){.topbar-brand{display:flex;}}
+
+/* Dark navigation with an optional compact icon rail. */
+.sidebar {background:#303030;border-color:#484848;color:#eee;}
+.sidebar .nav-item,.sidebar .nav-item > svg,.sidebar .nav-group h2,.sidebar .profile b,.sidebar .profile small,.sidebar .sidebar-bottom > button,.sidebar .workspace-switch,.sidebar .workspace-switch small,.sidebar .workspace-switch > svg {color:#eee;}
+.sidebar .workspace-switch {background:#393939;border-color:#555;}
+.sidebar .workspace-icon {background:#4a4a4a;border-color:#666;color:#eee;flex-shrink:0;}
+.sidebar .nav-item:hover {background:#414141;}
+.sidebar .nav-item.active,.sidebar .nav-item.active > svg {background:#505050;color:#fff;}
+.sidebar .active-dot,.sidebar .online-dot {background:#bbb;}
+.sidebar .profile {border-color:#555;}
+.sidebar .profile-badge {background:#eee;}
+.sidebar-toggle {display:flex;align-items:center;justify-content:center;gap:9px;background:#3c3c3c;color:#eee;border:1px solid #666;border-radius:6px;padding:8px;margin:8px 7px 0;font-size:13px;}
+.sidebar-toggle:hover {background:#505050;}
+.sidebar-toggle svg {flex-shrink:0;}
+@media(min-width:651px) {
+  .sidebar-collapsed .sidebar {width:76px;padding-left:10px;padding-right:10px;}
+  .sidebar-collapsed .main-shell {margin-left:76px;}
+  .sidebar-collapsed .brand {margin:0;padding:0;justify-content:center;}
+  .sidebar-collapsed .brand-logo {height:auto;width:54px;}
+  .sidebar-collapsed .sidebar-toggle {margin:16px 0 0;padding:10px;}
+  .sidebar-collapsed .sidebar-toggle span,.sidebar-collapsed .workspace-switch,.sidebar-collapsed .nav-group h2,.sidebar-collapsed .nav-item span,.sidebar-collapsed .sidebar-bottom > button span,.sidebar-collapsed .sidebar-bottom > button > svg:last-child,.sidebar-collapsed .profile > div,.sidebar-collapsed .profile .online-dot {display:none;}
+  .sidebar-collapsed .nav-item {justify-content:center;padding:13px 0;}
+  .sidebar-collapsed .sidebar-bottom > button {justify-content:center;padding:12px 0;}
+  .sidebar-collapsed .profile {justify-content:center;padding:16px 0 0;}
+}
+@media(max-width:650px) {.sidebar-toggle {display:none;}}
