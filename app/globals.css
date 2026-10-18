@@ -1885,3 +1885,24 @@ thead th > input,thead th > select {display:block;margin-top:9px;width:100%;min-
 .record-form input:not([type=checkbox]),.record-form select {width:100%;padding:9px 10px;border:1px solid #bbb;border-radius:5px;background:white;color:#222;font:inherit;}
 .record-form input[type=checkbox] {width:18px;height:18px;}
 .manage-actions {display:flex;gap:10px;justify-content:flex-end;margin-top:12px;}
+
+.metrics {grid-template-columns:repeat(3,minmax(0,1fr));}
+.money-metric strong {font-size:28px;overflow-wrap:anywhere;}
+.dashboard-cards {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0;}
+.dashboard-cards strong {font-size:26px;overflow-wrap:anywhere;}
+.dashboard-note {color:#666;font-size:13px;line-height:1.6;}
+.dashboard-panel {border:1px solid var(--line);background:#fff;border-radius:10px;padding:20px;margin:20px 0;overflow-x:auto;}
+.dashboard-panel h2 {font-size:18px;margin:0 0 20px;}
+.dashboard-breakdowns {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.dashboard-panel table {width:100%;}
+.dashboard-panel td,.dashboard-panel th {padding:10px 6px;font-size:13px;}
+.month-row {display:grid;grid-template-columns:80px 1fr;gap:12px;margin-bottom:18px;font-size:12px;}
+.chart-line {display:flex;align-items:center;gap:8px;margin-bottom:5px;min-height:18px;}
+.chart-line > span:last-child {white-space:nowrap;font-size:11px;}
+.chart-bar {display:block;height:12px;min-width:1px;max-width:65%;border-radius:2px;}
+.chart-bar.sales {background:#333;}.chart-bar.spending {background:#aaa;}
+@media(max-width:1000px){.dashboard-breakdowns{grid-template-columns:1fr;}.dashboard-cards{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:650px){.metrics,.dashboard-cards{grid-template-columns:1fr;}}
+
+.dashboard-chart .chart-line {display:grid;grid-template-columns:minmax(0,1fr) 170px;}
+.dashboard-chart .chart-bar {max-width:100%;}

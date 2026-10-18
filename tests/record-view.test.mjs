@@ -9,8 +9,9 @@ test('record view sorts newest dates first, blanks last and filters before pagin
 });
 test('Postgres sorting is allowlisted and filter values remain parameters with platform isolation',async()=>{
  const calls=[];
- const pool={query:async()=>({rows:[]}),connect:async()=>({query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.includes('count(*)')?[{count:45}]:[]};},release(){}})};
- await readPgRecords(pool,683461259,1,'',{sort:2,direction:'asc',filters:{0:"x' OR 1=1 --"}});
+ const pool={query:async()=>({rows:[]}),connect:async()=>({query:async(sql,params)=>{calls.push({sql,params});return {rows:sql.includes('count(*)')?[{count:45,money_total:"1234.56"}]:[]};},release(){}})};
+ const result=await readPgRecords(pool,683461259,1,'',{sort:2,direction:'asc',filters:{0:"x' OR 1=1 --"}});
+ assert.equal(result.moneyTotal,1234.56);
  const select=calls.find(c=>c.sql.includes(' LIMIT '));
  assert.match(select.sql,/platform::text=\$2/);
  assert.match(select.sql,/ORDER BY amount_thb ASC NULLS LAST, id DESC/);

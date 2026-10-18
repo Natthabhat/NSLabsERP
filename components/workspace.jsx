@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import {
+  LayoutDashboard,
   ArrowUpRight,
   ArrowRight,
   ArrowLeft,
@@ -81,7 +82,8 @@ export default function Workspace() {
     [sortColumn, setSortColumn] = useState(null),
     [sortDirection, setSortDirection] = useState("desc"),
     [columnFilters, setColumnFilters] = useState({}),
-    [manage, setManage] = useState(null);
+    [manage, setManage] = useState(null),
+    [dashboard, setDashboard] = useState(false);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -164,6 +166,7 @@ export default function Workspace() {
     setSortColumn(null);
     setSortDirection("desc");
     setColumnFilters({});
+    setDashboard(false);
     setSelected(tab);
     setPage(0);
     setSearch("");
@@ -318,6 +321,7 @@ export default function Workspace() {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
+          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
           {["Workshop", "Pricing", "Marketplaces"].filter(group => modules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
@@ -328,12 +332,12 @@ export default function Workspace() {
                     key={tab.id}
                     title={tab.title}
                     aria-label={tab.title}
-                    className={`nav-item ${selected.id === tab.id ? "active" : ""}`}
+                    className={`nav-item ${!dashboard && selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
                     <MiniIcon tab={tab} size={16} />
                     <span>{tab.title}</span>
-                    {selected.id === tab.id && <span className="active-dot" />}
+                    {!dashboard && selected.id === tab.id && <span className="active-dot" />}
                   </button>
                 ))}
             </section>
@@ -382,7 +386,7 @@ export default function Workspace() {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{selected.title}</b>
+            <b>{dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <span
@@ -405,6 +409,7 @@ export default function Workspace() {
           </div>
         </header>
         <main>
+          {dashboard ? <DashboardView/> : <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -469,6 +474,7 @@ export default function Workspace() {
             </div>
           )}
           <div className="metrics">
+            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.name==='ST log'?'Sales revenue':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
             <div className="metric">
               <div className="metric-top">
                 <span>{query ? "MATCHING RECORDS" : "TOTAL RECORDS"}</span>
@@ -723,6 +729,7 @@ export default function Workspace() {
               </div>
             </div>
           </section>
+          </>}
           <footer><span>NS LABS ERP</span></footer>
         </main>
       </div>
@@ -916,4 +923,19 @@ function RecordManager({kind,fields,onClose,onSubmit}) {
       </label>)}
       {error&&<p role="alert" className="editor-error">{error}</p>}<div className="manage-actions"><button className="button" type="button" disabled={busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy?'Saving...':kind==='column'?'Add column':'Save entry'}</button></div>
     </form></section></div>;
+}
+
+function money(value){return new Intl.NumberFormat('en-TH',{style:'currency',currency:'THB',minimumFractionDigits:2}).format(Number(value||0));}
+function DashboardView(){
+ const [data,setData]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true);
+ useEffect(()=>{let active=true;setLoading(true);api('/api/dashboard').then(d=>{if(active){setData(d);setError('');}}).catch(e=>active&&setError(e.message)).finally(()=>active&&setLoading(false));return()=>{active=false;};},[refresh]);
+ const spending=Number(data?.costs||0)+Number(data?.filament||0);
+ return <section className="dashboard-view"><div className="page-heading"><div><span className="eyebrow">NS LABS / OVERVIEW</span><h1>Dashboard</h1></div><button className="button" disabled={loading} onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={15}/>{loading?'Refreshing':'Refresh'}</button></div>
+ {error&&<p role="alert">{error}</p>}{!data&&loading?<p role="status">Loading dashboard...</p>:data&&<>
+ <div className="dashboard-cards">{[['Sales revenue',data.sales],['Total spending',spending],['Revenue less recorded costs',Number(data.sales)-Number(data.shipping)-spending],['Confirmed payouts',data.payouts],['Shipping costs',data.shipping],['Pending payouts',data.pending]].map(([label,value])=><article className="metric" key={label}><div className="metric-top">{label}</div><strong>{money(value)}</strong></article>)}</div>
+ <p className="dashboard-note">All records · {data.saleCount} sales. Spending includes equipment and filament purchases. Revenue less costs excludes taxes, fees, and unrecorded expenses. Payouts are shown separately from sales.</p>
+ <section className="dashboard-panel"><h2>Monthly sales and spending</h2><div className="dashboard-chart">{data.monthly.map(row=>{const max=Math.max(1,...data.monthly.flatMap(r=>[Number(r.sales),Number(r.spending)]));return <div className="month-row" key={row.month}><b>{row.month}</b><div><div className="chart-line"><span className="chart-bar sales" style={{width:Math.max(0,Number(row.sales))/max*100+'%'}}/><span>Sales {money(row.sales)}</span></div><div className="chart-line"><span className="chart-bar spending" style={{width:Math.max(0,Number(row.spending))/max*100+'%'}}/><span>Spending {money(row.spending)}</span></div></div></div>;})}</div>{!data.monthly.length&&<p>No dated records yet.</p>}</section>
+ <div className="dashboard-breakdowns">{[['Sales by platform',data.platforms],['Spending by category',data.categories],['Filament by material',data.materials]].map(([title,rows])=><section className="dashboard-panel" key={title}><h2>{title}</h2><table><thead><tr><th>Name</th><th>Amount (THB)</th></tr></thead><tbody>{rows.map(row=><tr key={row.name}><td>{row.name}</td><td>{money(row.amount)}</td></tr>)}</tbody></table>{!rows.length&&<p>No records yet.</p>}</section>)}</div>
+ </>}
+ </section>;
 }
