@@ -11,3 +11,7 @@ backups/
 deploy.log
 
 *.tar
+
+.watchdog/
+
+watchdog-deploy-key.pub

@@ -53,3 +53,15 @@ Use .env.local with the above variables, a reachable database address and APP_UR
 ## Google Sheets mode
 
 The original adapter remains available with DATA_BACKEND=sheets and the Google OAuth variables in .env.example. It reads and edits the configured workbook through the Sheets API. Export or synchronization from PostgreSQL is not implemented. Demo records are fictional and temporary.
+
+## Automatic GitHub deployments
+
+The nslabs-erp-watchdog container checks the private repository main branch every 60 seconds. A new commit is archived into a release folder, built with the repository Dockerfile (including its tests), and deployed as the ERP service. The watcher verifies container health before recording success and restores the previous image if startup fails. Failed commits wait five minutes before retrying. An unchanged revision does not restart the app.
+
+The server-owned compose.yaml, database configuration and .env.production stay outside the Git checkout used for builds. Automatic updates deploy application code and Dockerfile changes. Runtime ports, secrets, networks, database migrations and the watcher itself require an explicit administrator update.
+
+The watcher runs as UID 1000 with all Linux capabilities dropped and Docker socket group 115. Access to that socket allows it to build images and recreate containers. It uses a read-only GitHub deploy key scoped to this repository, stored only under /home/natthabhat/.ssh/nslabs-erp-github on the server. The private key and environment file are excluded from images and Git. GitHub SSH host keys are verified against GitHub's HTTPS metadata endpoint.
+
+Find nslabs-erp-watchdog in Portainer Containers and open Logs for update results. Status is stored at /home/natthabhat/nslabs-erp/.watchdog/status.json. Per-revision build logs and release sources live in the same private folder. Logs from the watcher container rotate at 5 MB, with three files retained. Build images and archived release directories are retained for troubleshooting; remove old revisions deliberately when no longer needed.
+
+Stop nslabs-erp-watchdog in Portainer to pause automatic deployment; the ERP keeps running. Start it to resume. After applying a fix, restart the watcher to check GitHub immediately. Preserve the server environment file and database backups during maintenance.

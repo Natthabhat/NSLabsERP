@@ -1,0 +1,28 @@
+services:
+  watchdog:
+    image: nslabs-erp-watchdog:local
+    build: .
+    container_name: nslabs-erp-watchdog
+    restart: unless-stopped
+    user: "1000:1000"
+    group_add:
+      - "115"
+    cap_drop:
+      - ALL
+    environment:
+      DEPLOY_ROOT: /home/natthabhat/nslabs-erp
+      REPO_URL: git@github.com:Natthabhat/NSLabsERP.git
+      REPO_BRANCH: main
+      POLL_SECONDS: "60"
+      GIT_SSH_COMMAND: ssh -i /run/github/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/run/github/known_hosts
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/natthabhat/nslabs-erp:/home/natthabhat/nslabs-erp
+      - /home/natthabhat/.ssh/nslabs-erp-github:/run/github:ro
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
