@@ -1914,3 +1914,12 @@ thead th > input,thead th > select {display:block;margin-top:9px;width:100%;min-
 .profile-settings small {display:block;margin-top:4px;font-size:12px;color:#ccc;}
 .sidebar-bottom > .profile-settings:hover {background:#414141;}
 @media(min-width:651px){.sidebar-collapsed .sidebar-bottom > .profile-settings > .profile-badge{display:grid;}.sidebar-collapsed .profile-settings .profile-settings-label{display:none;}}
+
+.category-summary {margin:0 0 24px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
+.category-summary summary {display:flex;align-items:center;gap:12px;padding:17px 20px;cursor:pointer;list-style:none;font-size:16px;font-weight:600;}
+.category-summary summary::-webkit-details-marker {display:none;}
+.category-summary summary small {margin-left:auto;font-size:12px;font-weight:400;color:#666;}
+.category-summary[open] summary > svg {transform:rotate(180deg);}
+.category-summary-content {border-top:1px solid var(--line);padding:0 16px 12px;overflow-x:auto;}
+.category-summary table {width:100%;}.category-summary th,.category-summary td {padding:12px;font-size:14px;}
+.category-summary summary:focus-visible {outline:2px solid #555;outline-offset:-3px;}
