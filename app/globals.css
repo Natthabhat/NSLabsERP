@@ -1937,3 +1937,8 @@ thead th > input,thead th > select {display:block;margin-top:9px;width:100%;min-
 .deleted-badge {display:inline-block;margin-left:8px;font-size:12px;color:#666;}
 
 .new-page-button {margin-top:18px;border:1px dashed #666;}
+
+.table-scroll tbody tr:nth-child(odd) {background:#fff;}
+.table-scroll tbody tr:nth-child(even) {background:#edf0f2;}
+.table-scroll tbody tr:hover {background:#e1e5e9;}
+.exchange-rate {width:95px;padding:7px;border:1px solid #ccc;border-radius:4px;font:inherit;}

@@ -25,3 +25,17 @@ test('new columns use the restricted database function with parameterized labels
 test('invalid column types are rejected before calling database schema function',async()=>{
  const f=fixture();await assert.rejects(managePgRecords(f.pool,'natthabhat',{action:'column',tab:683461259,operationId:base.operationId,label:'Notes',type:'text; DROP TABLE x'}));assert.ok(!f.calls.some(c=>c.sql.includes('AS column_key')));
 });
+
+test('USD entries convert money to THB and preserve units and original audit input',async()=>{
+ const f=fixture();await managePgRecords(f.pool,'natthabhat',{action:'entry',tab:94512498,operationId:base.operationId,currency:'USD',exchangeRate:34.5,values:{item_order:'Test',unit:2,price:10,order_date:'2026-10-22',category:'Tools'}});
+ const insert=f.calls.find(c=>c.sql.startsWith('INSERT INTO public.'));
+ assert.equal(insert.params[1],2);assert.equal(insert.params[2],345);
+ const audit=f.calls.find(c=>c.sql.startsWith('INSERT INTO erp_web.edits'));
+ assert.equal(JSON.parse(audit.params[6]).values.price,10);
+ assert.equal(JSON.parse(audit.params[6]).currency,'USD');
+});
+test('USD entries require a finite positive exchange rate',async()=>{
+ for(const exchangeRate of [0,-1,NaN,Infinity,100001,undefined]){
+ const f=fixture();await assert.rejects(managePgRecords(f.pool,'natthabhat',{...base,currency:'USD',exchangeRate}));assert.ok(!f.calls.some(c=>c.sql.startsWith('INSERT INTO public.')));
+ }
+});

@@ -86,6 +86,10 @@ export default function Workspace() {
     [dashboard, setDashboard] = useState(false),
     [selectionsView,setSelectionsView] = useState(false),
     [newPage,setNewPage] = useState(false);
+  const [displayCurrency,setDisplayCurrency]=useState('THB'),[exchangeRate,setExchangeRate]=useState('');
+  useEffect(()=>{try{const p=JSON.parse(localStorage.getItem('erp-currency')||'{}');if(Number(p.rate)>0){setExchangeRate(String(p.rate));setDisplayCurrency(p.currency==='USD'?'USD':'THB');}}catch{}},[]);
+  function updateCurrency(currency,rate){setDisplayCurrency(currency);setExchangeRate(rate);localStorage.setItem('erp-currency',JSON.stringify({currency,rate}));}
+  const formatMoney=value=>money(displayCurrency==='USD'?Number(value)/Number(exchangeRate):value,displayCurrency);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -304,7 +308,7 @@ export default function Workspace() {
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       {newPage&&<NewPageForm onClose={()=>setNewPage(false)} onCreate={async request=>{const created=await api('/api/pages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});const next=await api('/api/status');setStatus(next);const tab=next.customPages.find(p=>p.id===created.id);if(tab)choose(tab);setNewPage(false);notify('Page created');}}/>}
-      {manage && <RecordManager kind={manage} fields={data?.fields||[]} onClose={()=>setManage(null)} onSubmit={async values=>{await api('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,tab:selected.id,action:manage})});setManage(null);setPage(0);setQuery('');setSearch('');setColumnFilters({});setSortColumn(null);setSortDirection('desc');setRefresh(r=>r+1);notify(manage==='entry'?'New entry saved':'New column added');}} />}
+      {manage && <RecordManager exchangeRate={exchangeRate} kind={manage} fields={data?.fields||[]} onClose={()=>setManage(null)} onSubmit={async values=>{await api('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,tab:selected.id,action:manage})});setManage(null);setPage(0);setQuery('');setSearch('');setColumnFilters({});setSortColumn(null);setSortDirection('desc');setRefresh(r=>r+1);notify(manage==='entry'?'New entry saved':'New column added');}} />}
       <aside className={mobileNav ? "sidebar mobile-open" : "sidebar"}>
         <a className="brand" href="/" aria-label="NS Labs ERP home">
           <img
@@ -457,7 +461,7 @@ export default function Workspace() {
             </div>
           )}
           <div className="metrics">
-            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.id===1270018478?'Sales revenue':selected.custom?'Amount':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
+            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?formatMoney(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.id===1270018478?'Sales revenue':selected.custom?'Amount':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · {displayCurrency}</div></div>}
             <div className="metric">
               <div className="metric-top">
                 <span>{query ? "MATCHING RECORDS" : "TOTAL RECORDS"}</span>
@@ -500,7 +504,7 @@ export default function Workspace() {
           </div>
           {isPostgres && data?.categoryLabel && [{label:data.categoryLabel,rows:data.categories,quantity:data.quantityLabel},...(data.productCategories?[{label:'Product code',rows:data.productCategories}]:[])].map(group=><details className="category-summary" key={selected.id+'-'+group.label}>
             <summary><span>{group.label} breakdown</span><small>{group.rows.length} categories</small><ChevronDown size={17}/></summary>
-            <div className="category-summary-content"><table><thead><tr><th>{group.label}</th><th>Records</th>{group.quantity&&<th>{group.quantity}</th>}<th>Amount (THB)</th></tr></thead><tbody>{group.rows.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':data.fields?.find(f=>f.label===group.label)?.optionLabels?.[category.name]||category.name}</td><td>{category.records}</td>{group.quantity&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{money(category.amount)}</td></tr>)}</tbody></table>{!group.rows.length&&<p>No matching records.</p>}</div>
+            <div className="category-summary-content"><table><thead><tr><th>{group.label}</th><th>Records</th>{group.quantity&&<th>{group.quantity}</th>}<th>Amount ({displayCurrency})</th></tr></thead><tbody>{group.rows.map(category=><tr key={category.name}><td>{category.name==='true'?'Confirmed':category.name==='false'?'Pending':data.fields?.find(f=>f.label===group.label)?.optionLabels?.[category.name]||category.name}</td><td>{category.records}</td>{group.quantity&&<td>{Number(category.quantity).toLocaleString()}</td>}<td>{formatMoney(category.amount)}</td></tr>)}</tbody></table>{!group.rows.length&&<p>No matching records.</p>}</div>
           </details>)}
           <section
             className="records-panel"
@@ -564,12 +568,15 @@ export default function Workspace() {
             </div>
             <div className="table-meta">
               <div className="record-sort-controls">
+                <label>Display currency <select aria-label="Display currency" value={displayCurrency} disabled={saving||!!editTarget} onChange={e=>updateCurrency(e.target.value,exchangeRate)}><option value="THB">THB</option><option value="USD" disabled={!(Number(exchangeRate)>0)}>USD</option></select></label>
+                <label>1 USD = <input className="exchange-rate" aria-label="THB per USD" type="number" min="0.0001" max="100000" step="any" value={exchangeRate} placeholder="THB rate" disabled={saving||!!editTarget} onChange={e=>updateCurrency(Number(e.target.value)>0?displayCurrency:'THB',e.target.value)}/> THB</label>
+
                 <label>Sort by <select aria-label="Sort by" disabled={saving} value={sortColumn ?? "latest"} onChange={e=>{setSortColumn(e.target.value==='latest'?null:Number(e.target.value));setSortDirection('desc');setPage(0);}}><option value="latest">Time - latest first</option>{data?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}</select></label>
                 <button disabled={saving} onClick={()=>{setSortDirection(sortDirection==='desc'?'asc':'desc');setPage(0);}} aria-label="Reverse sort direction">{sortDirection==='desc'?'Descending':'Ascending'}</button>
                 {Object.keys(columnFilters).length>0&&<button disabled={saving} onClick={()=>{setColumnFilters({});setPage(0);}}>Clear filters</button>}
               </div>
               <span>
-                <LockKeyhole size={11} /> {isPostgres ? "Calculated totals are read-only" : "Formula cells are read-only"}
+                <LockKeyhole size={11} /> {isPostgres ? "Inline edits use THB · Calculated totals are read-only" : "Formula cells are read-only"}
               </span>
             </div>
             <div className="table-scroll" aria-busy={loading}>
@@ -621,7 +628,7 @@ export default function Workspace() {
                       {data?.headers.map((h, i) => (
                         <th key={i} aria-sort={(sortColumn ?? data.sort)===i?(sortDirection==='asc'?'ascending':'descending'):'none'}>
                           <button className="column-sort" disabled={saving} onClick={()=>{setSortDirection((sortColumn ?? data.sort)===i&&sortDirection==='desc'?'asc':'desc');setSortColumn(i);setPage(0);}}>
-                            {h}{records.some(record=>record.formulas?.[i])&&<LockKeyhole size={12} aria-label="Calculated column"/>}{(sortColumn ?? data.sort)===i?(sortDirection==='desc'?' ↓':' ↑'):<ChevronsUpDown size={10}/>}
+                            {isMoneyField(data.fields?.[i])?h.replace(/\s*\(THB\)/,'')+' ('+displayCurrency+')':h}{records.some(record=>record.formulas?.[i])&&<LockKeyhole size={12} aria-label="Calculated column"/>}{(sortColumn ?? data.sort)===i?(sortDirection==='desc'?' ↓':' ↑'):<ChevronsUpDown size={10}/>}
                           </button>
                           {data.fields?.[i]?.options ? <select aria-label={`Filter ${h}`} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}><option value="">All</option>{data.fields[i].options.map(option=><option key={option} value={option}>{data.fields[i].optionLabels?.[option]||option}</option>)}</select> : <input aria-label={`Filter ${h}`} placeholder="Filter…" type={data.fields?.[i]?.type==='date'?'date':'search'} maxLength={200} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}/>}
                         </th>
@@ -657,7 +664,7 @@ export default function Workspace() {
                                   disabled={loading || saving || !!error || !!record.formulas?.[i]}
                                   title={record.formulas?.[i] ? "Calculated value — edit its input fields" : "Click to edit."}
                                   aria-label={(record.formulas?.[i] ? "Calculated " : "Edit ") + data.headers[i] + ", row " + record.row}>
-                                  <CellValue value={data.fields?.[i]?.optionLabels?.[value]||value} header={data.headers[i]} />
+                                  <CellValue value={isMoneyField(data.fields?.[i])&&value!==''?formatMoney(value):data.fields?.[i]?.optionLabels?.[value]||value} header={data.headers[i]} />
                                 </button>
                               )}
                             </td>
@@ -899,12 +906,15 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
   </form>;
 }
 
-function RecordManager({kind,fields,onClose,onSubmit}) {
+function RecordManager({kind,fields,onClose,onSubmit,exchangeRate}) {
   const [values,setValues]=useState({}),[label,setLabel]=useState(''),[type,setType]=useState('text'),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [currency,setCurrency]=useState('THB'),[rate,setRate]=useState(exchangeRate||'');
   const operation=useRef(crypto.randomUUID());
-  async function submit(e) {e.preventDefault();if(busy)return;setBusy(true);setError('');try{await onSubmit(kind==='column'?{label,type,operationId:operation.current}:{values,operationId:operation.current});}catch(e){setError(e.message);}finally{setBusy(false);}}
+  async function submit(e) {e.preventDefault();if(busy)return;setBusy(true);setError('');try{await onSubmit(kind==='column'?{label,type,operationId:operation.current}:{values,currency,exchangeRate:currency==='USD'?Number(rate):1,operationId:operation.current});}catch(e){setError(e.message);}finally{setBusy(false);}}
   return <div className="setup-overlay"><section className="setup-card record-manager" role="dialog" aria-modal="true" aria-label={kind==='entry'?'New entry':'New column'}><div className="manage-heading"><h2>{kind==='entry'?'New entry':'New column'}</h2><button className="icon-button" aria-label="Close form" disabled={busy} onClick={onClose}><X size={20}/></button></div>
     <form onSubmit={submit} className="record-form">
+      {kind==='entry'&&fields.some(isMoneyField)&&<><label>Entry currency<select value={currency} disabled={busy} onChange={e=>setCurrency(e.target.value)}><option value="THB">THB</option><option value="USD">USD</option></select></label>{currency==='USD'&&<label>Exchange rate - THB per 1 USD<input type="number" min="0.0001" max="100000" step="any" required value={rate} disabled={busy} onChange={e=>setRate(e.target.value)}/></label>}<p>Money fields are entered in {currency}. Saved amounts and inline edits use THB.</p></>}
+
       {kind==='column'?<><label>Column name<input autoFocus required maxLength={60} value={label} onChange={e=>setLabel(e.target.value)} disabled={busy}/></label><label>Data type<select value={type} onChange={e=>setType(e.target.value)} disabled={busy}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="boolean">Checkbox</option></select></label><p>Existing records will have an empty value. Marketplace columns appear in all four marketplace views.</p></>:fields.filter(f=>!f.generated).map(f=><label key={f.key}>{f.label}{!f.nullable&&f.type!=='boolean'?' *':''}
         {f.options?<select required={!f.nullable} disabled={busy} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value})}><option value="">Select</option>{f.options.map(v=><option key={v} value={v}>{f.optionLabels?.[v]||v}</option>)}</select>:f.type==='boolean'?<input type="checkbox" disabled={busy} checked={values[f.key]??false} onChange={e=>setValues({...values,[f.key]:e.target.checked})}/>:<input autoFocus={f===fields[0]} disabled={busy} type={f.type==='date'?'date':f.type==='number'?'number':'text'} step={f.integer?'1':'any'} required={!f.nullable} maxLength={f.type==='text'?10000:undefined} value={values[f.key]??''} onChange={e=>setValues({...values,[f.key]:e.target.value===''?(f.nullable?null:''):f.type==='number'?Number(e.target.value):e.target.value})}/>}
       </label>)}
@@ -912,7 +922,8 @@ function RecordManager({kind,fields,onClose,onSubmit}) {
     </form></section></div>;
 }
 
-function money(value){return new Intl.NumberFormat('en-TH',{style:'currency',currency:'THB',minimumFractionDigits:2}).format(Number(value||0));}
+function isMoneyField(field){return field?.type==='number'&&['price','shipping','total','amount','amount_thb'].includes(field.key);}
+function money(value,currency='THB'){return new Intl.NumberFormat('en-TH',{style:'currency',currency,minimumFractionDigits:2}).format(Number(value||0));}
 function DashboardView(){
  const [data,setData]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true);
  useEffect(()=>{let active=true;setLoading(true);api('/api/dashboard').then(d=>{if(active){setData(d);setError('');}}).catch(e=>active&&setError(e.message)).finally(()=>active&&setLoading(false));return()=>{active=false;};},[refresh]);
