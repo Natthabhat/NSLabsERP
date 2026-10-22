@@ -86,9 +86,10 @@ export default function Workspace() {
     [dashboard, setDashboard] = useState(false),
     [selectionsView,setSelectionsView] = useState(false),
     [newPage,setNewPage] = useState(false);
-  const [displayCurrency,setDisplayCurrency]=useState('THB'),[exchangeRate,setExchangeRate]=useState('');
-  useEffect(()=>{try{const p=JSON.parse(localStorage.getItem('erp-currency')||'{}');if(Number(p.rate)>0){setExchangeRate(String(p.rate));setDisplayCurrency(p.currency==='USD'?'USD':'THB');}}catch{}},[]);
-  function updateCurrency(currency,rate){setDisplayCurrency(currency);setExchangeRate(rate);localStorage.setItem('erp-currency',JSON.stringify({currency,rate}));}
+  const exchangeRate='31';
+  const [displayCurrency,setDisplayCurrency]=useState('THB');
+  useEffect(()=>{try{const p=JSON.parse(localStorage.getItem('erp-currency')||'{}');setDisplayCurrency(p.currency==='USD'?'USD':'THB');}catch{}},[]);
+  function updateCurrency(currency){setDisplayCurrency(currency);localStorage.setItem('erp-currency',JSON.stringify({currency}));}
   const formatMoney=value=>money(displayCurrency==='USD'?Number(value)/Number(exchangeRate):value,displayCurrency);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
@@ -569,7 +570,6 @@ export default function Workspace() {
             <div className="table-meta">
               <div className="record-sort-controls">
                 <label>Display currency <select aria-label="Display currency" value={displayCurrency} disabled={saving||!!editTarget} onChange={e=>updateCurrency(e.target.value,exchangeRate)}><option value="THB">THB</option><option value="USD" disabled={!(Number(exchangeRate)>0)}>USD</option></select></label>
-                <label>1 USD = <input className="exchange-rate" aria-label="THB per USD" type="number" min="0.0001" max="100000" step="any" value={exchangeRate} placeholder="THB rate" disabled={saving||!!editTarget} onChange={e=>updateCurrency(Number(e.target.value)>0?displayCurrency:'THB',e.target.value)}/> THB</label>
 
                 <label>Sort by <select aria-label="Sort by" disabled={saving} value={sortColumn ?? "latest"} onChange={e=>{setSortColumn(e.target.value==='latest'?null:Number(e.target.value));setSortDirection('desc');setPage(0);}}><option value="latest">Time - latest first</option>{data?.headers.map((h,i)=><option key={i} value={i}>{h}</option>)}</select></label>
                 <button disabled={saving} onClick={()=>{setSortDirection(sortDirection==='desc'?'asc':'desc');setPage(0);}} aria-label="Reverse sort direction">{sortDirection==='desc'?'Descending':'Ascending'}</button>
@@ -908,7 +908,7 @@ function InlineCellEditor({editor,draft,setDraft,saving,uncertain,error,onSave,o
 
 function RecordManager({kind,fields,onClose,onSubmit,exchangeRate}) {
   const [values,setValues]=useState({}),[label,setLabel]=useState(''),[type,setType]=useState('text'),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const [currency,setCurrency]=useState('THB'),[rate,setRate]=useState(exchangeRate||'');
+  const [currency,setCurrency]=useState('THB'),[rate,setRate]=useState(exchangeRate||'31');
   const operation=useRef(crypto.randomUUID());
   async function submit(e) {e.preventDefault();if(busy)return;setBusy(true);setError('');try{await onSubmit(kind==='column'?{label,type,operationId:operation.current}:{values,currency,exchangeRate:currency==='USD'?Number(rate):1,operationId:operation.current});}catch(e){setError(e.message);}finally{setBusy(false);}}
   return <div className="setup-overlay"><section className="setup-card record-manager" role="dialog" aria-modal="true" aria-label={kind==='entry'?'New entry':'New column'}><div className="manage-heading"><h2>{kind==='entry'?'New entry':'New column'}</h2><button className="icon-button" aria-label="Close form" disabled={busy} onClick={onClose}><X size={20}/></button></div>
