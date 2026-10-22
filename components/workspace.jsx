@@ -84,7 +84,8 @@ export default function Workspace() {
     [columnFilters, setColumnFilters] = useState({}),
     [manage, setManage] = useState(null),
     [dashboard, setDashboard] = useState(false),
-    [selectionsView,setSelectionsView] = useState(false);
+    [selectionsView,setSelectionsView] = useState(false),
+    [newPage,setNewPage] = useState(false);
   const [demo, setDemo] = useState(initialDemo),
     [editor, setEditor] = useState(null),
     [editTarget, setEditTarget] = useState(null),
@@ -296,11 +297,13 @@ export default function Workspace() {
     }
   }
   const isPostgres = status?.backend === "postgres";
+  const availableModules=[...modules,...(status?.customPages||[])];
   const fresh = !loading && !error,
     records = data?.rows || [],
     rowsLabel = data?.total === undefined ? "—" : data.total.toLocaleString();
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      {newPage&&<NewPageForm onClose={()=>setNewPage(false)} onCreate={async request=>{const created=await api('/api/pages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});const next=await api('/api/status');setStatus(next);const tab=next.customPages.find(p=>p.id===created.id);if(tab)choose(tab);setNewPage(false);notify('Page created');}}/>}
       {manage && <RecordManager kind={manage} fields={data?.fields||[]} onClose={()=>setManage(null)} onSubmit={async values=>{await api('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...values,tab:selected.id,action:manage})});setManage(null);setPage(0);setQuery('');setSearch('');setColumnFilters({});setSortColumn(null);setSortDirection('desc');setRefresh(r=>r+1);notify(manage==='entry'?'New entry saved':'New column added');}} />}
       <aside className={mobileNav ? "sidebar mobile-open" : "sidebar"}>
         <a className="brand" href="/" aria-label="NS Labs ERP home">
@@ -321,10 +324,10 @@ export default function Workspace() {
         </div>
         <nav aria-label="Worksheets">
           {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
-          {["Workshop", "Pricing", "Marketplaces"].filter(group => modules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
+          {["Workshop", "Pricing", "Marketplaces"].filter(group => availableModules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
-              {modules
+              {availableModules
                 .filter((t) => t.group === group && (status?.backend !== "postgres" || status.modules?.includes(t.id)))
                 .map((tab) => (
                   <button
@@ -342,6 +345,7 @@ export default function Workspace() {
             </section>
           ))}
         </nav>
+        {isPostgres&&mode==='live'&&<button className="nav-item new-page-button" title="New page" aria-label="New page" disabled={saving} onClick={()=>setNewPage(true)}><FileSpreadsheet size={16}/><span>+ New page</span></button>}
         <div className="sidebar-bottom">
           {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
           <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
@@ -453,7 +457,7 @@ export default function Workspace() {
             </div>
           )}
           <div className="metrics">
-            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.id===1270018478?'Sales revenue':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
+            {isPostgres&&<div className="metric money-metric"><div className="metric-top"><span>{query||Object.values(columnFilters).some(Boolean)?'MATCHING TOTAL':'TOTAL MONEY'}</span><Coins size={17}/></div><strong>{data?money(data.moneyTotal):'—'}</strong><div className="metric-bottom">{selected.id===1270018478?'Sales revenue':selected.custom?'Amount':selected.group==='Marketplaces'?'Payout amount':'Recorded spending'} · THB</div></div>}
             <div className="metric">
               <div className="metric-top">
                 <span>{query ? "MATCHING RECORDS" : "TOTAL RECORDS"}</span>
@@ -933,4 +937,10 @@ function SelectionManager({onSaved}){
  <label className="deleted-toggle"><input type="checkbox" checked={showDeleted} onChange={e=>setShowDeleted(e.target.checked)}/> Show deleted selections</label>
  {error&&<p role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
  <table><thead><tr><th>Label</th><th>Stored value</th><th>Actions</th></tr></thead><tbody>{options.filter(o=>o.list_key===list&&(showDeleted||o.active!==false)).map(o=><tr key={o.option_value}><td>{editing===o.option_value?<form className="selection-inline-form" onSubmit={e=>{e.preventDefault();save(o.option_value,draft.trim());}}><input aria-label={'Edit label '+o.option_value} autoFocus maxLength={60} required disabled={busy} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setEditing(null);}}}/><button className="button" disabled={busy}>Save</button><button className="button" type="button" disabled={busy} onClick={()=>setEditing(null)}>Cancel</button></form>:<button className="selection-label-button" disabled={busy||o.active===false} aria-label={'Edit '+o.label} onClick={()=>{setEditing(o.option_value);setDraft(o.label);setNotice('');}}>{o.label}</button>}</td><td>{o.option_value}{o.active===false&&<span className="deleted-badge">Deleted</span>}</td><td><button className="button" disabled={busy} aria-label={(o.active===false?'Restore ':'Delete ')+o.label} onClick={()=>save(o.option_value,o.label,o.active===false?'restore':'delete')}>{o.active===false?'Restore':'Delete'}</button></td></tr>)}</tbody></table></section></section>;
+}
+
+function NewPageForm({onClose,onCreate}){
+ const [title,setTitle]=useState(''),[group,setGroup]=useState('Workshop'),[busy,setBusy]=useState(false),[error,setError]=useState('');const operation=useRef(crypto.randomUUID());
+ async function submit(e){e.preventDefault();if(busy)return;setBusy(true);setError('');try{await onCreate({title:title.trim(),group,operationId:operation.current});}catch(e){setError(e.message);}finally{setBusy(false);}}
+ return <div className="setup-overlay"><section className="setup-card" role="dialog" aria-modal="true" aria-label="New page"><div className="manage-heading"><h2>New page</h2><button className="icon-button" disabled={busy} aria-label="Close new page" onClick={onClose}><X size={20}/></button></div><form className="record-form" onSubmit={submit}><label>Page name<input autoFocus required maxLength={60} disabled={busy} value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Sidebar section<select disabled={busy} value={group} onChange={e=>setGroup(e.target.value)}><option>Workshop</option><option>Pricing</option><option>Marketplaces</option></select></label><p>Starts with Name, Date, Amount, and Notes. Add more fields with New column.</p>{error&&<p role="alert" className="editor-error">{error}</p>}<div className="manage-actions"><button type="button" className="button" disabled={busy} onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy?'Creating...':'Create page'}</button></div></form></section></div>;
 }
