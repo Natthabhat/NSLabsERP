@@ -12,12 +12,16 @@ services:
       - shopee-orders:/var/lib/nslabs-shopee:ro
     networks:
       - database
+      - automation
     labels:
       com.centurylinklabs.watchtower.enable: "false"
     cap_drop:
       - ALL
 
 networks:
+  automation:
+    external: true
+    name: n8n_default
   database:
     external: true
     name: nslabs-db-admin

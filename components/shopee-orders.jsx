@@ -8,12 +8,14 @@ function time(value) { if (!value || !Number.isFinite(Date.parse(value))) return
 function statusLabel(status) { if (/cancel|ยกเลิก/i.test(status)) return 'Cancelled'; if (/ship|จัดส่ง|เตรียม/i.test(status)) return 'To ship'; return status || 'Unknown'; }
 
 export default function ShopeeOrders({ connected, onSignIn }) {
-  const [data, setData] = useState(null), [loading, setLoading] = useState(false), [error, setError] = useState('');
+  const [data, setData] = useState(null), [loading, setLoading] = useState(false), [error, setError] = useState(''), [syncing, setSyncing] = useState(false), [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0), [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [page, setPage] = useState(0), [selected, setSelected] = useState(null);
   const dialog = useRef(null);
+  const syncController = useRef(null), syncInFlight = useRef(false);
+  useEffect(() => () => syncController.current?.abort(), []);
   useEffect(() => {
     setData(null); setError('');
-    if (!connected) { setLoading(false); setSelected(null); dialog.current?.close(); return; }
+    if (!connected) { syncController.current?.abort(); setLoading(false); setSelected(null); dialog.current?.close(); return; }
     const controller = new AbortController(); let active = true; setLoading(true);
     fetch('/api/shopee', { cache: 'no-store', signal: controller.signal }).then(async response => { const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Could not load Shopee orders.'); return result; }).then(result => { if (active) { setData(result); setPage(0); } }).catch(e => { if (active && e.name !== 'AbortError') setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; controller.abort(); };
@@ -26,15 +28,53 @@ export default function ShopeeOrders({ connected, onSignIn }) {
   const stale = snapshot && Date.now() - Date.parse(snapshot.collectedAt) > 36 * 3600000;
   const needsAttention = ['login_required', 'verification_required', 'error'].includes(data?.collector?.status);
   function details(order) { setSelected(order); dialog.current?.showModal(); }
+  async function runSync() {
+    if (!connected || syncInFlight.current || loading) return;
+    syncInFlight.current = true; setSyncing(true); setError(''); setNotice('');
+    const controller = new AbortController(); syncController.current = controller;
+    async function request(options = {}) {
+      const response = await fetch('/api/shopee', { ...options, cache: 'no-store', signal: controller.signal });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not refresh Shopee orders.');
+      return result;
+    }
+    function wait() {
+      return new Promise((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
+        const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); resolve(); }, 2500);
+        controller.signal.addEventListener('abort', abort, { once: true });
+        if (controller.signal.aborted) abort();
+      });
+    }
+    try {
+      const accepted = await request({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      if (accepted.accepted !== true || !Number.isFinite(Date.parse(accepted.requestedAt))) throw new Error('The automation did not confirm the refresh request.');
+      const deadline = Date.now() + 180000;
+      while (Date.now() < deadline) {
+        await wait();
+        const latest = await request();
+        const collected = Date.parse(latest.snapshot?.collectedAt);
+        if (collected >= Date.parse(accepted.requestedAt) && latest.snapshot.collectedAt !== accepted.previousCollectedAt) {
+          setData(latest); setPage(0); setNotice('Orders updated from Shopee.'); return;
+        }
+        if (Date.parse(latest.collector?.lastRun) >= Date.parse(accepted.requestedAt) && ['login_required', 'verification_required', 'error'].includes(latest.collector?.status)) {
+          setData(latest); throw new Error('The collector needs attention. Open the automation and complete Shopee verification if requested.');
+        }
+      }
+      throw new Error('The automation is taking longer than expected. Check its execution before starting another refresh.');
+    } catch (e) { if (e.name !== 'AbortError') setError(e.message); }
+    finally { syncInFlight.current = false; setSyncing(false); if (syncController.current === controller) syncController.current = null; }
+  }
   function download() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `shopee-to-ship-${snapshot.collectedAt.slice(0, 10)}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <section className="shopee-view">
-    <div className="page-heading"><div><div className="eyebrow"><span/>NS LABS / MARKETPLACES</div><h1>Shopee orders<span className="heading-dot">.</span></h1><p>Your To Ship queue, collected daily and ready to review.</p></div><div className="page-actions"><a className="button" href={WORKFLOW} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/>Open automation</a><button className="button primary" disabled={!connected || loading} onClick={() => setRefresh(n => n + 1)}><RefreshCw size={15} className={loading ? 'spin' : ''}/>{loading ? 'Loading' : 'Refresh data'}</button></div></div>
-    <div className="shopee-connection"><span className="shopee-mark"><ShoppingBag size={24}/></span><div><strong>Shopee Thailand{snapshot?.shop ? ` · ${snapshot.shop}` : ''}</strong><span>Seller Centre → n8n → NS Labs ERP</span></div><span className={`shopee-pill ${needsAttention || stale ? 'warning' : ''}`}><span/>{!connected ? 'Sign-in required' : loading ? 'Checking report' : error ? 'Report unavailable' : needsAttention ? 'Collector needs attention' : stale ? 'Report is overdue' : snapshot ? 'Report available' : 'Awaiting report'}</span><div className="shopee-schedule"><Clock3 size={16}/><span>Daily at 07:00<small>Asia/Bangkok</small></span></div></div>
+    <div className="page-heading"><div><div className="eyebrow"><span/>NS LABS / MARKETPLACES</div><h1>Shopee orders<span className="heading-dot">.</span></h1></div><div className="page-actions"><a className="button" href={WORKFLOW} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/>Open automation</a><button className="button primary" disabled={!connected || loading || syncing} onClick={runSync}><RefreshCw size={15} className={loading || syncing ? 'spin' : ''}/>{syncing ? 'Refreshing…' : loading ? 'Loading' : 'Refresh data'}</button></div></div>
     {!connected ? <div className="shopee-empty"><ShoppingBag size={32}/><h2>Your orders, in one place.</h2><p>Sign in to the ERP to view your shop’s latest collected orders.</p><button className="button primary" onClick={onSignIn}>Sign in to view orders</button></div> : <>
       {error && <div className="shopee-alert" role="alert"><AlertCircle size={18}/><span>{error}</span><button className="button" onClick={() => setRefresh(n => n + 1)}>Try again</button></div>}
+      {syncing && <div className="shopee-sync-progress" role="status"><RefreshCw size={16} className="spin"/>Running the Shopee automation. Your latest report will appear when collection finishes.</div>}
+      {notice && !syncing && <div className="shopee-sync-progress" role="status"><CheckCircle2 size={16}/>{notice}</div>}
       {(needsAttention || stale) && <div className="shopee-alert" role="status"><AlertCircle size={18}/><span>{needsAttention ? 'The collector needs attention. Check its latest execution and complete Shopee verification if requested. The last successful report is shown below.' : 'This report is over 36 hours old. Check the automation before relying on these orders.'}</span><a href={WORKFLOW} target="_blank" rel="noopener noreferrer">View workflow <ArrowUpRight size={14}/></a></div>}
       <div className="shopee-metrics"><article><span><ShoppingBag size={17}/>Orders in report</span><strong>{snapshot ? snapshot.orderCount : '—'}</strong><small>To Ship scope</small></article><article><span><Package size={17}/>Product lines</span><strong>{snapshot ? snapshot.itemCount : '—'}</strong><small>{snapshot ? `${orders.reduce((n, o) => n + o.items.reduce((q, i) => q + i.quantity, 0), 0)} units across all orders` : 'Waiting for collector data'}</small></article><article><span>฿ Buyer payments</span><strong>{snapshot ? amountsComplete ? money(total) : 'Incomplete' : '—'}</strong><small>Reported order totals · not payouts</small></article></div>
       <section className="shopee-report"><div className="shopee-report-heading"><div><h2>To Ship orders <span>{snapshot ? orders.length : '—'}</span></h2><p>{snapshot ? <>Collected {time(snapshot.collectedAt)} ICT</> : 'The latest successful report will appear here.'}</p></div><button className="button" disabled={!snapshot} onClick={download}><Download size={15}/>Download data</button></div>
