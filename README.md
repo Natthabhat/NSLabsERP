@@ -29,6 +29,7 @@ These are general product capabilities, not disclosures of NS Labs' transaction 
 - Custom pages grouped in the sidebar, with their own editable records.
 - Monetary entry and display in supported currencies, with server-side conversion to a base currency.
 - Dashboard summaries for authorized users.
+- A read-only Shopee orders page showing the latest collected To Ship report, order items, buyer payment totals, and collection freshness. This does not create sales-ledger entries.
 
 Display currency changes do not rewrite saved records. Currency conversion assumptions and internal reporting conventions should be reviewed by authorized operators before interpreting financial information. Dashboard summaries are operational indicators rather than audited financial statements.
 

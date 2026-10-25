@@ -1,0 +1,9 @@
+node_modules/
+*.png
+*.jpg
+*.xlsx
+latest-orders.json
+status.json
+profile/
+*.log
+.env*

@@ -1,0 +1,7 @@
+{
+  "name": "nslabs-shopee-browser",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "playwright": "1.64.0", "exceljs": "4.4.0" }
+}

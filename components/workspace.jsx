@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { modules, SOURCE_URL, PAGE_SIZE } from "../lib/config.mjs";
 import { initialDemo, demoRecords, demoCell } from "../lib/demo.mjs";
+import ShopeeOrders from "./shopee-orders";
 const icons = {
   cost: Coins,
   filament: Layers3,
@@ -64,7 +65,8 @@ function MiniIcon({ tab, ...props }) {
   const Icon = icons[tab.icon];
   return <Icon {...props} />;
 }
-export default function Workspace() {
+export default function Workspace({ initialView = '' }) {
+  const [shopeeView, setShopeeView] = useState(initialView === 'shopee');
   const [selected, setSelected] = useState(modules[1]),
     [status, setStatus] = useState(null),
     [mode, setMode] = useState("setup"),
@@ -128,7 +130,7 @@ export default function Workspace() {
     };
   }, []);
   useEffect(() => {
-    if (mode === "setup") return;
+    if (mode === "setup" || shopeeView) return;
     let active = true;
     const controller = new AbortController();
     setLoading(true);
@@ -154,7 +156,7 @@ export default function Workspace() {
       active = false;
       controller.abort();
     };
-  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters]);
+  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters, shopeeView]);
   useEffect(() => {
     editRequest.current++;
     setEditor(null);
@@ -170,6 +172,7 @@ export default function Workspace() {
   }
   function choose(tab) {
     if (saving || saveInFlight.current) return;
+    setShopeeView(false);
     setSortColumn(null);
     setSortDirection("desc");
     setColumnFilters({});
@@ -328,7 +331,7 @@ export default function Workspace() {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
-          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
+          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setShopeeView(false);setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
           {["Workshop", "Pricing", "Marketplaces"].filter(group => availableModules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
@@ -339,20 +342,21 @@ export default function Workspace() {
                     key={tab.id}
                     title={tab.title}
                     aria-label={tab.title}
-                    className={`nav-item ${!dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
+                    className={`nav-item ${!shopeeView && !dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
                     <MiniIcon tab={tab} size={16} />
                     <span>{tab.title}</span>
-                    {!dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
+                    {!shopeeView && !dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
                   </button>
                 ))}
             </section>
           ))}
+          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
         </nav>
         {isPostgres&&mode==='live'&&<button className="nav-item new-page-button" title="New page" aria-label="New page" disabled={saving} onClick={()=>setNewPage(true)}><FileSpreadsheet size={16}/><span>+ New page</span></button>}
         <div className="sidebar-bottom">
-          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
+          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setShopeeView(false);setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
           <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
             <span className="profile-badge"><img src="/icon.png" alt="" /></span>
             <span className="profile-settings-label"><b>NS Labs Studio</b><small>Connection settings</small></span>
@@ -384,7 +388,7 @@ export default function Workspace() {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
+            <b>{shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <button
@@ -397,7 +401,7 @@ export default function Workspace() {
           </div>
         </header>
         <main>
-          {selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
+          {shopeeView ? <ShopeeOrders connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">

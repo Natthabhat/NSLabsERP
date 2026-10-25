@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./shopee.css";
 export const metadata = {
   title: "NS Labs ERP",
   description:
