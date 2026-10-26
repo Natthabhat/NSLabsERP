@@ -3,9 +3,10 @@ import { mkdir, writeFile, readFile, chmod, rename } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
 import ExcelJS from 'exceljs';
+import { orderStatus } from './order-status.mjs';
 
 const ROOT = '/data';
-const ORDER_URL = 'https://seller.shopee.co.th/portal/sale/order?type=toship&source=all&sort_by=ship_by_date_asc';
+const ORDER_URL = 'https://seller.shopee.co.th/portal/sale/order';
 await mkdir(ROOT, { recursive: true, mode: 0o700 }); await chmod(ROOT, 0o700);
 await mkdir('/export', { recursive: true, mode: 0o755 });
 let context, page, busy = false;
@@ -111,7 +112,7 @@ async function collect() {
     try { await exports.first().waitFor({ state: 'visible', timeout: 30000 }); }
     catch { await authStep(); const e = Error(state.message); e.status = 409; throw e; }
     await exports.first().click();
-    await page.getByText(/Export To Ship Orders|ส่งออก.*ที่ต้องจัดส่ง/i).waitFor({ timeout: 15000 });
+    await page.getByText(/Export All Orders|ส่งออก.*ที่ต้องจัดส่ง/i).waitFor({ timeout: 15000 });
     const range = (await page.locator('body').innerText()).match(/\d{4}\/\d{2}\/\d{2}\s*[–-]\s*\d{4}\/\d{2}\/\d{2}/)?.[0] ?? 'Shopee default date range';
     await exports.last().click();
     const downloadButton = page.getByRole('button', { name: /^Download$|^ดาวน์โหลด$/i });
@@ -120,11 +121,11 @@ async function collect() {
     const download = await event; const filename = download.suggestedFilename();
     if (!filename.toLowerCase().endsWith('.xlsx')) throw Error('Shopee returned an unexpected file type.');
     const reportPath = `${ROOT}/latest-report.xlsx`; await download.saveAs(reportPath); await chmod(reportPath, 0o600);
-    const orders = await normalizeReport(await readFile(reportPath));
-    const result = { schemaVersion: 1, source: 'shopee-seller-centre', shop: 'nslabs', scope: 'to_ship', dateRange: range, collectedAt: new Date().toISOString(), reportName: filename, orderCount: orders.length, itemCount: orders.reduce((n, o) => n + o.items.length, 0), orders, erpImported: false };
+    const orders = (await normalizeReport(await readFile(reportPath))).map(order => ({...order,status:orderStatus(order.status)})).filter(order => order.status);
+    const result = { schemaVersion: 1, source: 'shopee-seller-centre', shop: 'nslabs', scope: 'three_statuses', dateRange: range, collectedAt: new Date().toISOString(), reportName: filename, orderCount: orders.length, itemCount: orders.reduce((n, o) => n + o.items.length, 0), orders, erpImported: false };
     await writeFile(`${ROOT}/latest-orders.json`, JSON.stringify(result, null, 2), { mode: 0o600 });
     await publishFile('latest-orders.json', result);
-    state.status = 'connected'; state.message = 'Order report collected and normalized. ERP delivery is not configured.'; state.lastSuccess = result.collectedAt;
+    state.status = 'connected'; state.message = 'Order report collected and published to ERP.'; state.lastSuccess = result.collectedAt;
     return result;
   } catch (error) { if (state.status !== 'login_required' && state.status !== 'verification_required') { state.status = 'error'; state.message = 'Order collection failed. Review the session before retrying.'; } await page?.screenshot({ path: `${ROOT}/session.png` }).catch(() => {}); throw error; }
   finally { busy = false; await saveState(); }
