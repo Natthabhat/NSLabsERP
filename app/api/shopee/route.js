@@ -4,6 +4,7 @@ import { json, failure } from '../../../lib/http.mjs';
 import { readShopeeSnapshot } from '../../../lib/shopee.mjs';
 import { triggerShopeeSync } from '../../../lib/shopee-sync.mjs';
 import { matchShopeeProducts } from '../../../lib/shopee-products.mjs';
+import { readShopeeHistory } from '../../../lib/shopee-history.mjs';
 
 export const dynamic = 'force-dynamic';
 async function requireUser() {
@@ -13,7 +14,7 @@ async function requireUser() {
 export async function GET() {
   try {
     await requireUser();
-    return json(await matchShopeeProducts(await readShopeeSnapshot()));
+    return json(await matchShopeeProducts(await readShopeeHistory()));
   } catch (error) { return failure(error); }
 }
 let lastAccepted = 0, starting = false;

@@ -9,6 +9,7 @@ const ROOT = '/data';
 const ORDER_URL = 'https://seller.shopee.co.th/portal/sale/order';
 await mkdir(ROOT, { recursive: true, mode: 0o700 }); await chmod(ROOT, 0o700);
 await mkdir('/export', { recursive: true, mode: 0o755 });
+await mkdir('/export/history', { recursive: true, mode: 0o755 });
 let context, page, busy = false;
 const state = { status: 'starting', message: 'Starting browser.', lastRun: null, lastSuccess: null };
 try { const saved = JSON.parse(await readFile(`${ROOT}/status.json`, 'utf8')); state.lastRun = saved.lastRun || null; state.lastSuccess = saved.lastSuccess || null; } catch {}
@@ -124,6 +125,7 @@ async function collect() {
     const orders = (await normalizeReport(await readFile(reportPath))).map(order => ({...order,status:orderStatus(order.status)})).filter(order => order.status);
     const result = { schemaVersion: 1, source: 'shopee-seller-centre', shop: 'nslabs', scope: 'three_statuses', dateRange: range, collectedAt: new Date().toISOString(), reportName: filename, orderCount: orders.length, itemCount: orders.reduce((n, o) => n + o.items.length, 0), orders, erpImported: false };
     await writeFile(`${ROOT}/latest-orders.json`, JSON.stringify(result, null, 2), { mode: 0o600 });
+    await publishFile(`history/${result.collectedAt.replaceAll(':','-').replace('.','-')}.json`, result);
     await publishFile('latest-orders.json', result);
     state.status = 'connected'; state.message = 'Order report collected and published to ERP.'; state.lastSuccess = result.collectedAt;
     return result;
