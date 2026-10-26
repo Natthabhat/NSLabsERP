@@ -5,7 +5,7 @@ const input={name:'Cable organiser',sku:'n003',quantity:5,variants:[{name:'Large
 test('product validation normalizes SKUs and counts stock only at the variant level',()=>{
  const p=validateProduct(input);assert.equal(p.sku,'N003');assert.equal(p.variants[0].sku,'N003LG');assert.equal(p.quantity,0);
  assert.equal(validateProduct({...input,variants:[]}).quantity,5);
- for(const bad of [{...input,name:''},{...input,quantity:1.5},{...input,variants:[{name:'Grey',sku:'N003',quantity:0}]},{...input,variants:[{name:'Grey',sku:'LG',quantity:-1}]},{...input,id:'bad'},{...input,picture:'data:image/svg+xml;base64,PHN2Zz4='},{...input,picture:'data:image/png;base64,aGVsbG8='}])assert.throws(()=>validateProduct(bad));
+ for(const bad of [{...input,name:''},{...input,quantity:1.5,variants:[]},{...input,variants:[{name:'Grey',sku:'N003',quantity:0}]},{...input,variants:[{name:'Grey',sku:'LG',quantity:-1}]},{...input,id:'bad'},{...input,picture:'data:image/svg+xml;base64,PHN2Zz4='},{...input,picture:'data:image/png;base64,aGVsbG8='}])assert.throws(()=>validateProduct(bad));
  assert.equal(validateProduct({...input,picture:null}).picture,null);
  assert.equal(validateProduct(input).picture,undefined);
 });
@@ -30,4 +30,11 @@ test('prices use exact satang, allow inherited variant prices, and reject invali
  for(const value of ['-1','1.001','1e3','NaN','10000000.01',Infinity,1.23])assert.throws(()=>priceCents(value));
  const p=validateProduct({...input,price:'59.00',variants:[{...input.variants[0],price:'69.50'},{name:'White',sku:'N003W',quantity:1,price:''}]});
  assert.equal(p.priceCents,5900);assert.equal(p.variants[0].priceCents,6950);assert.equal(p.variants[1].priceCents,null);
+});
+
+test('100 pieces per variant saves even when hidden parent stock was cleared',()=>{
+ const p=validateProduct({...input,quantity:'',variants:[{name:'Black',sku:'N061B',quantity:100},{name:'White',sku:'N061W',quantity:100}]});
+ assert.equal(p.quantity,0);assert.deepEqual(p.variants.map(v=>v.quantity),[100,100]);
+ assert.throws(()=>validateProduct({...input,quantity:'',variants:[]}));
+ assert.throws(()=>validateProduct({...input,quantity:'',variants:[{name:'Black',sku:'N061B',quantity:1.5}]}));
 });
