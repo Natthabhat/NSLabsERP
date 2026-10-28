@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const config = {
   output: "standalone",
+  serverExternalPackages: ["pdfkit"],
+  outputFileTracingIncludes: {"/api/tools/pdf": ["./assets/fonts/**/*", "./public/logo-black.png"]},
   poweredByHeader: false,
   async headers() {
     return [

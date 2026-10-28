@@ -41,6 +41,7 @@ import { modules, SOURCE_URL, PAGE_SIZE } from "../lib/config.mjs";
 import { initialDemo, demoRecords, demoCell } from "../lib/demo.mjs";
 import ShopeeOrders from "./shopee-orders";
 import Products from "./products";
+import Tools from "./tools";
 import ShopeeDashboard from "./shopee-dashboard";
 const icons = {
   cost: Coins,
@@ -68,6 +69,7 @@ function MiniIcon({ tab, ...props }) {
   return <Icon {...props} />;
 }
 export default function Workspace({ initialView = '' }) {
+  const [toolsView, setToolsView] = useState(initialView === 'tools');
   const [productView, setProductView] = useState(initialView === 'products');
   const [shopeeView, setShopeeView] = useState(initialView === 'shopee');
   const [selected, setSelected] = useState(modules[1]),
@@ -133,7 +135,7 @@ export default function Workspace({ initialView = '' }) {
     };
   }, []);
   useEffect(() => {
-    if (mode === "setup" || shopeeView || productView) return;
+    if (mode === "setup" || shopeeView || productView || toolsView) return;
     let active = true;
     const controller = new AbortController();
     setLoading(true);
@@ -159,7 +161,7 @@ export default function Workspace({ initialView = '' }) {
       active = false;
       controller.abort();
     };
-  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters, shopeeView, productView]);
+  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters, shopeeView, productView, toolsView]);
   useEffect(() => {
     editRequest.current++;
     setEditor(null);
@@ -175,7 +177,7 @@ export default function Workspace({ initialView = '' }) {
   }
   function choose(tab) {
     if (saving || saveInFlight.current) return;
-    setProductView(false);setShopeeView(false);
+    setToolsView(false);setProductView(false);setShopeeView(false);
     setSortColumn(null);
     setSortDirection("desc");
     setColumnFilters({});
@@ -334,8 +336,8 @@ export default function Workspace({ initialView = '' }) {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
-          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setProductView(false);setShopeeView(false);setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
-          <section className="nav-group"><h2>Inventory</h2><button className={`nav-item ${productView?'active':''}`} title="Product" aria-label="Product" onClick={()=>{if(saving||saveInFlight.current)return;setProductView(true);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><Box size={16}/><span>Product</span>{productView&&<span className="active-dot"/>}</button></section>
+          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setToolsView(false);setProductView(false);setShopeeView(false);setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
+          <section className="nav-group"><h2>Inventory</h2><button className={`nav-item ${productView?'active':''}`} title="Product" aria-label="Product" onClick={()=>{if(saving||saveInFlight.current)return;setToolsView(false);setProductView(true);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><Box size={16}/><span>Product</span>{productView&&<span className="active-dot"/>}</button></section>
           {["Workshop", "Pricing", "Marketplaces"].filter(group => availableModules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
@@ -346,21 +348,22 @@ export default function Workspace({ initialView = '' }) {
                     key={tab.id}
                     title={tab.title}
                     aria-label={tab.title}
-                    className={`nav-item ${!productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
+                    className={`nav-item ${!toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
                     <MiniIcon tab={tab} size={16} />
                     <span>{tab.title}</span>
-                    {!productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
+                    {!toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
                   </button>
                 ))}
             </section>
           ))}
-          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
+          <section className="nav-group"><h2>Documents</h2><button className={`nav-item ${toolsView?'active':''}`} title="Tools" aria-label="Tools" onClick={()=>{if(saving||saveInFlight.current)return;setToolsView(true);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><FileSpreadsheet size={16}/><span>Tools</span>{toolsView&&<span className="active-dot"/>}</button></section>
+          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setToolsView(false);setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
         </nav>
         {isPostgres&&mode==='live'&&<button className="nav-item new-page-button" title="New page" aria-label="New page" disabled={saving} onClick={()=>setNewPage(true)}><FileSpreadsheet size={16}/><span>+ New page</span></button>}
         <div className="sidebar-bottom">
-          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
+          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
           <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
             <span className="profile-badge"><img src="/icon.png" alt="" /></span>
             <span className="profile-settings-label"><b>NS Labs Studio</b><small>Connection settings</small></span>
@@ -392,7 +395,7 @@ export default function Workspace({ initialView = '' }) {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
+            <b>{toolsView?"Tools":productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <button
@@ -405,7 +408,7 @@ export default function Workspace({ initialView = '' }) {
           </div>
         </header>
         <main>
-          {productView ? <Products connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : shopeeView ? <ShopeeOrders connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
+          {toolsView ? <Tools connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : productView ? <Products connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : shopeeView ? <ShopeeOrders connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
