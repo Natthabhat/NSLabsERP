@@ -17,6 +17,7 @@ function ProductThumbnail({ item }) {
 export default function ShopeeOrders({ connected, onSignIn }) {
   const [data, setData] = useState(null), [loading, setLoading] = useState(false), [error, setError] = useState(''), [syncing, setSyncing] = useState(false), [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0), [query, setQuery] = useState(''), [filter, setFilter] = useState('To ship'), [page, setPage] = useState(0), [selected, setSelected] = useState(null);
+  useEffect(()=>{const params=new URLSearchParams(window.location.search);const status=params.get('status');if(ORDER_STATUSES.includes(status))setFilter(status);const order=params.get('order');if(order)setQuery(order);},[]);
   const dialog = useRef(null);
   const syncController = useRef(null), syncInFlight = useRef(false);
   useEffect(() => () => syncController.current?.abort(), []);

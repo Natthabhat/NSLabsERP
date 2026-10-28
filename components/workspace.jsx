@@ -41,6 +41,7 @@ import { modules, SOURCE_URL, PAGE_SIZE } from "../lib/config.mjs";
 import { initialDemo, demoRecords, demoCell } from "../lib/demo.mjs";
 import ShopeeOrders from "./shopee-orders";
 import Products from "./products";
+import ShopeeDashboard from "./shopee-dashboard";
 const icons = {
   cost: Coins,
   filament: Layers3,
@@ -937,6 +938,8 @@ function DashboardView(){
  const spending=Number(data?.costs||0)+Number(data?.filament||0);
  return <section className="dashboard-view"><div className="page-heading"><div><span className="eyebrow">NS LABS / OVERVIEW</span><h1>Dashboard</h1></div><button className="button" disabled={loading} onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={15}/>{loading?'Refreshing':'Refresh'}</button></div>
  {error&&<p role="alert">{error}</p>}{!data&&loading?<p role="status">Loading dashboard...</p>:data&&<>
+ <ShopeeDashboard data={data.shopee} error={data.shopeeUnavailable}/>
+ <h2 className="dashboard-finance-heading">Workshop finances</h2>
  <div className="dashboard-cards">{[['Sales revenue',data.sales],['Total spending',spending],['Revenue less recorded costs',Number(data.sales)-Number(data.shipping)-spending],['Confirmed payouts',data.payouts],['Shipping costs',data.shipping],['Pending payouts',data.pending]].map(([label,value])=><article className="metric" key={label}><div className="metric-top">{label}</div><strong>{money(value)}</strong></article>)}</div>
  <p className="dashboard-note">All records · {data.saleCount} sales. Spending includes equipment and filament purchases. Revenue less costs excludes taxes, fees, and unrecorded expenses. Payouts are shown separately from sales.</p>
  <section className="dashboard-panel"><h2>Monthly sales and spending</h2><div className="dashboard-chart">{data.monthly.map(row=>{const max=Math.max(1,...data.monthly.flatMap(r=>[Number(r.sales),Number(r.spending)]));return <div className="month-row" key={row.month}><b>{row.month}</b><div><div className="chart-line"><span className="chart-bar sales" style={{width:Math.max(0,Number(row.sales))/max*100+'%'}}/><span>Sales {money(row.sales)}</span></div><div className="chart-line"><span className="chart-bar spending" style={{width:Math.max(0,Number(row.spending))/max*100+'%'}}/><span>Spending {money(row.spending)}</span></div></div></div>;})}</div>{!data.monthly.length&&<p>No dated records yet.</p>}</section>
