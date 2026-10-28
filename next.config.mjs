@@ -2,7 +2,7 @@
 const config = {
   output: "standalone",
   serverExternalPackages: ["pdfkit"],
-  outputFileTracingIncludes: {"/api/tools/pdf": ["./assets/fonts/**/*", "./public/logo-black.png"]},
+  outputFileTracingIncludes: {"/api/tools/pdf": ["./assets/fonts/**/*", "./assets/signatures/**/*", "./public/logo-black.png"]},
   poweredByHeader: false,
   async headers() {
     return [
