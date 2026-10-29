@@ -14,6 +14,7 @@ COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/assets ./assets
 COPY --from=builder --chown=node:node /app/lib ./lib
+COPY --from=builder --chown=node:node /app/deployment/shopee-browser/order-status.mjs ./deployment/shopee-browser/order-status.mjs
 COPY --from=builder --chown=node:node /app/scripts/sync-shopee-inventory.mjs ./scripts/sync-shopee-inventory.mjs
 USER node
 EXPOSE 3000
