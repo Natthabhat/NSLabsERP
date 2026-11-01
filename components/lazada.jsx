@@ -1,14 +1,14 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {ShoppingBag,ExternalLink,CheckCircle2,RefreshCw} from 'lucide-react';
-async function api(path,options){const r=await fetch(path,{cache:'no-store',...options});const d=await r.json();if(!r.ok)throw Error(d.error||'Could not complete the request.');return d;}
+async function api(path,options){const r=await fetch(path,{cache:'no-store',...options});const text=await r.text();let d;try{d=JSON.parse(text);}catch{throw Error(`The connection check returned an unexpected response (HTTP ${r.status}). Please try again.`);}if(!r.ok)throw Error(d.error||'Could not complete the request.');return d;}
 export default function Lazada({connected,onSignIn}) {
  const [status,setStatus]=useState(null),[appKey,setAppKey]=useState(''),[secret,setSecret]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[orders,setOrders]=useState(null);
  async function load(){const s=await api('/api/lazada');setStatus(s);setAppKey(s.appKey);}
  useEffect(()=>{if(connected)load().catch(e=>setError(e.message));},[connected]);
  useEffect(()=>{const p=new URLSearchParams(window.location.search).get('connection');if(p==='connected')setMessage('Your Lazada Thailand shop is connected.');if(p==='failed')setError('Lazada authorization did not finish. Check the callback URL and authorize again.');},[]);
  async function save(e){e.preventDefault();setBusy(true);setError('');setMessage('');try{await api('/api/lazada',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({appKey,appSecret:secret})});setSecret('');await load();setMessage('App credentials saved. Connect your shop to continue.');}catch(e){setError(e.message);}finally{setBusy(false);}}
- async function check(){setBusy(true);setError('');try{const r=await api('/api/lazada/check',{method:'POST'});setOrders(r.orders);await load();setMessage('Lazada connection verified. Recent orders loaded.');}catch(e){setError(e.message);}finally{setBusy(false);}}
+ async function check(){setBusy(true);setError('');try{const r=await api('/api/lazada/check',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});setOrders(r.orders);await load();setMessage('Lazada connection verified. Recent orders loaded.');}catch(e){setError(e.message);}finally{setBusy(false);}}
  return <section className="lazada-view"><header className="lazada-heading"><div><span className="eyebrow">NS LABS / INTEGRATIONS</span><h1>Lazada.</h1><p>Connect your Thailand shop to NS Labs ERP.</p></div><a className="button" href="https://isvconsole.lazada.com/apps/console/apps" target="_blank" rel="noreferrer"><ExternalLink size={17}/> App console</a></header>
  {!connected?<div className="lazada-card"><h2>Sign in to connect Lazada</h2><p>Use your ERP account to manage this shop connection.</p><button className="button primary" onClick={onSignIn}>Sign in</button></div>:<>
  {error&&<div className="shopee-alert" role="alert">{error}</div>}{message&&<div className="lazada-message" role="status"><CheckCircle2 size={18}/>{message}</div>}
