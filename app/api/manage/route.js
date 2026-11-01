@@ -1,6 +1,7 @@
-import { manageRecords } from '../../../lib/data.mjs';
+import { manageRecords,entryDefaults } from '../../../lib/data.mjs';
 import { checkOrigin, AppError } from '../../../lib/security.mjs';
 import { json, failure } from '../../../lib/http.mjs';
+export async function GET(request){try{return json({defaults:await entryDefaults(Number(new URL(request.url).searchParams.get('tab')))});}catch(e){return failure(e);}}
 export async function POST(request) {
  try {
   checkOrigin(request);
