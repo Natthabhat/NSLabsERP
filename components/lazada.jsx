@@ -18,7 +18,7 @@ export default function Lazada({connected,onSignIn}) {
  const pages=Math.max(1,Math.ceil(filtered.length/20)),currentPage=Math.min(page,pages-1),shown=filtered.slice(currentPage*20,currentPage*20+20);
  function select(value){setFilter(value);setPage(0);}
  function download(){const url=URL.createObjectURL(new Blob([JSON.stringify({collectedAt:data.checkedAt,orders},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`lazada-orders-${data.checkedAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- return <section className="shopee-view">
+ return <section className="shopee-view lazada-orders">
  <div className="page-heading"><div><div className="eyebrow"><span/>NS LABS / MARKETPLACES</div><h1>Lazada orders<span className="heading-dot">.</span></h1></div><div className="page-actions"><a className="button" href="https://isvconsole.lazada.com/apps/console/apps" target="_blank" rel="noreferrer"><ExternalLink size={15}/>App console</a><button className="button primary" disabled={!connected||!status?.connected||busy} onClick={check}><RefreshCw size={15} className={busy?'spin':''}/>{busy?'Refreshing…':'Refresh data'}</button></div></div>
  {!connected?<div className="shopee-empty"><ShoppingBag size={32}/><h2>Sign in to view Lazada orders</h2><button className="button primary" onClick={onSignIn}>Sign in</button></div>:<>
  {error&&<div className="shopee-alert" role="alert"><AlertCircle size={18}/><span>{error}</span></div>}{message&&!busy&&<div className="shopee-sync-progress" role="status"><CheckCircle2 size={16}/>{message}</div>}
