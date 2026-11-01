@@ -6,11 +6,11 @@ test('Lazada signature matches the official HMAC SHA256 example and ignores exis
  assert.equal(lazadaSignature('/order/get',p,'helloworld'),'4190D32361CFB9581350222F345CB77F3B19F0E31D162316848A2C1FFD5FAB4A');
  assert.equal(lazadaSignature('/order/get',{sign:'old',...p},'helloworld'),lazadaSignature('/order/get',p,'helloworld'));
 });
-test('Lazada request uses fixed regional hosts, POST body and prevents unsupported operations',async()=>{
+test('Lazada request uses fixed regional hosts, documented methods and prevents unsupported operations',async()=>{
  const seen=[];const credentials={appKey:'123456',appSecret:'secret-for-test'};
  const fetcher=async(url,options)=>{seen.push({url,options});return {ok:true,async json(){return {code:'0',data:{orders:[]}};}};};
  await lazadaRequest('/orders/get',{access_token:'private-token'},credentials,{fetcher,now:100});
- assert.equal(seen[0].url,'https://api.lazada.co.th/rest/orders/get');assert.equal(seen[0].options.method,'POST');assert.equal(seen[0].options.body.get('access_token'),'private-token');assert.equal(seen[0].options.redirect,'error');
+ const url=new URL(seen[0].url);assert.equal(url.origin+url.pathname,'https://api.lazada.co.th/rest/orders/get');assert.equal(seen[0].options.method,'GET');assert.equal(url.searchParams.get('access_token'),'private-token');assert.equal(seen[0].options.redirect,'error');
  await lazadaRequest('/auth/token/create',{code:'private-code'},credentials,{fetcher});assert.equal(seen[1].url,'https://auth.lazada.com/rest/auth/token/create');
  await assert.rejects(lazadaRequest('/product/update',{},credentials,{fetcher}),/Unsupported/);assert.equal(seen.length,2);
  await assert.rejects(lazadaRequest('/orders/get',{},credentials,{fetcher:async()=>({ok:false,json:async()=>({code:'Invalid',message:'private-token'})})}),e=>!e.message.includes('private-token'));
