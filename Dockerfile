@@ -16,6 +16,7 @@ COPY --from=builder --chown=node:node /app/assets ./assets
 COPY --from=builder --chown=node:node /app/lib ./lib
 COPY --from=builder --chown=node:node /app/deployment/shopee-browser/order-status.mjs ./deployment/shopee-browser/order-status.mjs
 COPY --from=builder --chown=node:node /app/scripts/sync-shopee-inventory.mjs ./scripts/sync-shopee-inventory.mjs
+COPY --from=builder --chown=node:node /app/scripts/import-lazada-history.mjs ./scripts/import-lazada-history.mjs
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/api/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
