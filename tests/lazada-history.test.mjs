@@ -16,6 +16,7 @@ test('Lazada history keeps only operational fields and requests explicit date wi
  assert.equal(calls[0].params.created_after,window.after);assert.equal(calls[0].params.created_before,window.before);assert.equal(calls[0].params.limit,'100');assert.equal(result.orders[0].items[0].quantity,2);
  await assert.rejects(fetchLazadaHistoryPage(window,async()=>({data:{countTotal:10,orders:[]}})),/incomplete/);
  const empty=await fetchLazadaHistoryPage(window,async()=>({data:{countTotal:0}}));assert.deepEqual(empty.orders,[]);
+ const partial=await fetchLazadaHistoryPage(window,async path=>{if(path==='/orders/get')return {data:{countTotal:1,orders:[raw]}};throw Error('Items unavailable');});assert.equal(partial.orders.length,1);assert.equal(partial.orders[0].itemsAvailable,false);assert(partial.itemWarning);
 });
 test('PostgreSQL Lazada history persists once per shop/order, rejects stale updates, retains items and rolls back atomically',{skip:!process.env.TEST_LAZADA_HISTORY_DATABASE},async()=>{
  const client=new pg.Client({connectionString:process.env.DATABASE_URL});await client.connect();
