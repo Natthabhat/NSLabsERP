@@ -6,7 +6,8 @@ test('Lazada item batches join by order ID, deduplicate unit IDs and group ident
  const data=[{order_id:'123',order_items:[item,{...item,order_item_id:2},{...item},{...item,order_item_id:3,sku:'N003W',variation:'White'}]},{order_id:'999',order_items:[item]}];
  const rows=normalizeLazadaItems(data,['123']).get('123');assert.equal(rows.length,2);assert.equal(rows[0].quantity,2);assert.equal(rows[1].quantity,1);assert.equal(rows[0].thumbnail,'https://th-live.slatic.net/p/image.jpg');assert(!JSON.stringify(rows).includes('private'));
  assert.equal(normalizeLazadaItems([{...item,order_id:'123',quantity:3}],['123']).get('123')[0].quantity,3);
- assert.throws(()=>normalizeLazadaItems([{...item,order_id:'123',quantity:0}],['123']));
+ assert.equal(normalizeLazadaItems([{...item,order_id:'123',quantity:0}],['123']).has('123'),false);
+ const mixed=normalizeLazadaItems([{...item,order_id:'123',quantity:0},{...item,order_id:'456',quantity:2}],['123','456']);assert.equal(mixed.has('123'),false);assert.equal(mixed.get('456')[0].quantity,2);
  assert.equal(lazadaItemImage('javascript:alert(1)'),null);assert.equal(lazadaItemImage('https://slatic.net.evil.example/a'),null);
 });
 test('Lazada item calls use batches of at most 50 and preserve orders if a batch fails',async()=>{
