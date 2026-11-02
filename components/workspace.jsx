@@ -361,7 +361,7 @@ export default function Workspace({ initialView = '' }) {
             </section>
           ))}
           <section className="nav-group"><h2>Documents</h2><button className={`nav-item ${toolsView?'active':''}`} title="Tools" aria-label="Tools" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(true);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><FileSpreadsheet size={16}/><span>Tools</span>{toolsView&&<span className="active-dot"/>}</button></section>
-          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${lazadaView?'active':''}`} title="Lazada connection" aria-label="Lazada connection" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(true);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Lazada</span></button><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
+          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${lazadaView?'active':''}`} title="Lazada orders" aria-label="Lazada orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(true);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Lazada orders</span></button><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
         </nav>
         {isPostgres&&mode==='live'&&<button className="nav-item new-page-button" title="New page" aria-label="New page" disabled={saving} onClick={()=>setNewPage(true)}><FileSpreadsheet size={16}/><span>+ New page</span></button>}
         <div className="sidebar-bottom">
@@ -397,7 +397,7 @@ export default function Workspace({ initialView = '' }) {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{lazadaView?"Lazada":toolsView?"Tools":productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
+            <b>{lazadaView?"Lazada orders":toolsView?"Tools":productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <button
@@ -941,12 +941,14 @@ function RecordManager({kind,fields,onClose,onSubmit,exchangeRate,tab}) {
 function isMoneyField(field){return field?.type==='number'&&['price','shipping','total','amount','amount_thb'].includes(field.key);}
 function money(value,currency='THB'){return new Intl.NumberFormat('en-TH',{style:'currency',currency,minimumFractionDigits:2}).format(Number(value||0));}
 function DashboardView(){
- const [data,setData]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true);
+ const [data,setData]=useState(null),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[loading,setLoading]=useState(true),[marketplace,setMarketplace]=useState('all');
  useEffect(()=>{let active=true;setLoading(true);api('/api/dashboard').then(d=>{if(active){setData(d);setError('');}}).catch(e=>active&&setError(e.message)).finally(()=>active&&setLoading(false));return()=>{active=false;};},[refresh]);
  const spending=Number(data?.costs||0)+Number(data?.filament||0);
  return <section className="dashboard-view"><div className="page-heading"><div><span className="eyebrow">NS LABS / OVERVIEW</span><h1>Dashboard</h1></div><button className="button" disabled={loading} onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={15}/>{loading?'Refreshing':'Refresh'}</button></div>
  {error&&<p role="alert">{error}</p>}{!data&&loading?<p role="status">Loading dashboard...</p>:data&&<>
- <ShopeeDashboard data={data.shopee} error={data.shopeeUnavailable}/>
+ <label className="selection-list-label">Marketplace <select aria-label="Dashboard marketplace" value={marketplace} onChange={e=>setMarketplace(e.target.value)}><option value="all">All marketplaces</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option></select></label>
+ {marketplace!=='lazada'&&<ShopeeDashboard data={data.shopee} error={data.shopeeUnavailable}/>}
+ {marketplace!=='shopee'&&<ShopeeDashboard marketplace="Lazada" data={data.lazada} error={data.lazadaUnavailable}/>}
  <h2 className="dashboard-finance-heading">Workshop finances</h2>
  <div className="dashboard-cards">{[['Sales revenue',data.sales],['Total spending',spending],['Revenue less recorded costs',Number(data.sales)-Number(data.shipping)-spending],['Confirmed payouts',data.payouts],['Shipping costs',data.shipping],['Pending payouts',data.pending]].map(([label,value])=><article className="metric" key={label}><div className="metric-top">{label}</div><strong>{money(value)}</strong></article>)}</div>
  <p className="dashboard-note">All records · {data.saleCount} sales. Spending includes equipment and filament purchases. Revenue less costs excludes taxes, fees, and unrecorded expenses. Payouts are shown separately from sales.</p>
