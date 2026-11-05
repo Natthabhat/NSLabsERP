@@ -17,7 +17,17 @@ function ProductThumbnail({ item }) {
 export default function ShopeeOrders({ connected, onSignIn }) {
   const [data, setData] = useState(null), [loading, setLoading] = useState(false), [error, setError] = useState(''), [syncing, setSyncing] = useState(false), [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0), [query, setQuery] = useState(''), [filter, setFilter] = useState('To ship'), [page, setPage] = useState(0), [selected, setSelected] = useState(null);
-  useEffect(()=>{const params=new URLSearchParams(window.location.search);const status=params.get('status');if(ORDER_STATUSES.includes(status))setFilter(status);const order=params.get('order');if(order)setQuery(order);},[]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get('status'), order = url.searchParams.get('order');
+    if (ORDER_STATUSES.includes(status)) setFilter(status);
+    if (order) setQuery(order);
+    // Consume dashboard filters once so revisiting the page starts fresh.
+    if (url.searchParams.has('status') || url.searchParams.has('order')) {
+      url.searchParams.delete('status'); url.searchParams.delete('order');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+  }, []);
   const dialog = useRef(null);
   const syncController = useRef(null), syncInFlight = useRef(false);
   useEffect(() => () => syncController.current?.abort(), []);
