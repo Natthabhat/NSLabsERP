@@ -17,3 +17,24 @@ test('empty newer report retains stored completed orders and failed writes roll 
  const db=pool();await archiveShopeeSnapshot({...snapshot,orders:[]},db);assert(!db.calls.some(c=>/DELETE|UPDATE/.test(c.sql)));
  const failed=pool({fail:true});await assert.rejects(archiveShopeeSnapshot(snapshot,failed),/write failed/);assert(failed.calls.some(c=>c.sql==='ROLLBACK'));assert(!failed.calls.some(c=>c.sql==='COMMIT'));assert(failed.released);
 });
+
+function syncPool(acquired) {
+ const calls=[];let held=0;
+ const client={async query(sql){calls.push(sql);if(sql.includes('pg_try_advisory_lock'))return{rows:[{acquired}]};return{rows:[],rowCount:0};},release(){held--;}};
+ return {calls,get held(){return held;},async connect(){held++;return client;},query:client.query};
+}
+test('a sync that finds another import running skips without waiting for its lock',async()=>{
+ const {syncShopeeHistory}=await import('../lib/shopee-history.mjs');
+ const {mkdtemp}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+ process.env.SHOPEE_SNAPSHOT_DIR=await mkdtemp(join(tmpdir(),'shopee-'));
+ const db=syncPool(false);const report=await syncShopeeHistory(db);
+ assert.equal(report.skipped,true);assert.equal(db.held,0);
+ assert(!db.calls.some(sql=>/shopee_imports|pg_advisory_xact_lock|pg_advisory_unlock/.test(sql)));
+});
+test('a sync that takes the import lock imports, then releases the lock and connection',async()=>{
+ const {syncShopeeHistory}=await import('../lib/shopee-history.mjs');
+ const db=syncPool(true);const report=await syncShopeeHistory(db);
+ assert.equal(report.skipped,undefined);assert.deepEqual(report.inventory,{pending:0});assert.equal(db.held,0);
+ assert(db.calls.some(sql=>sql.includes('FROM erp_web.shopee_imports')));
+ assert(db.calls.findIndex(sql=>sql.includes('pg_advisory_unlock'))>db.calls.findIndex(sql=>sql.includes('shopee_inventory_settings')));
+});
