@@ -44,6 +44,7 @@ import Products from "./products";
 import Tools from "./tools";
 import ShopeeDashboard from "./shopee-dashboard";
 import Lazada from "./lazada";
+import Etsy from "./etsy";
 const icons = {
   cost: Coins,
   filament: Layers3,
@@ -71,6 +72,7 @@ function MiniIcon({ tab, ...props }) {
 }
 export default function Workspace({ initialView = '' }) {
   const [lazadaView,setLazadaView]=useState(initialView === 'lazada');
+  const [etsyView,setEtsyView]=useState(initialView === 'etsy');
   const [toolsView, setToolsView] = useState(initialView === 'tools');
   const [productView, setProductView] = useState(initialView === 'products');
   const [shopeeView, setShopeeView] = useState(initialView === 'shopee');
@@ -137,7 +139,7 @@ export default function Workspace({ initialView = '' }) {
     };
   }, []);
   useEffect(() => {
-    if (mode === "setup" || shopeeView || productView || toolsView || lazadaView) return;
+    if (mode === "setup" || shopeeView || productView || toolsView || lazadaView || etsyView) return;
     let active = true;
     const controller = new AbortController();
     setLoading(true);
@@ -163,7 +165,7 @@ export default function Workspace({ initialView = '' }) {
       active = false;
       controller.abort();
     };
-  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters, shopeeView, productView, toolsView, lazadaView]);
+  }, [mode, selected, page, query, refresh, demo, sortColumn, sortDirection, columnFilters, shopeeView, productView, toolsView, lazadaView, etsyView]);
   useEffect(() => {
     editRequest.current++;
     setEditor(null);
@@ -179,7 +181,7 @@ export default function Workspace({ initialView = '' }) {
   }
   function choose(tab) {
     if (saving || saveInFlight.current) return;
-    setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(false);
+    setLazadaView(false);setEtsyView(false);setToolsView(false);setProductView(false);setShopeeView(false);
     setSortColumn(null);
     setSortDirection("desc");
     setColumnFilters({});
@@ -338,8 +340,8 @@ export default function Workspace({ initialView = '' }) {
           <ChevronsUpDown size={13} />
         </div>
         <nav aria-label="Worksheets">
-          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(false);setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
-          <section className="nav-group"><h2>Inventory</h2><button className={`nav-item ${productView?'active':''}`} title="Product" aria-label="Product" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(false);setProductView(true);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><Box size={16}/><span>Product</span>{productView&&<span className="active-dot"/>}</button></section>
+          {isPostgres&&<button className={`nav-item ${dashboard?'active':''}`} title="Dashboard" aria-label="Dashboard" onClick={()=>{if(saving)return;setLazadaView(false);setEtsyView(false);setToolsView(false);setProductView(false);setShopeeView(false);setSelectionsView(false);setDashboard(true);setMobileNav(false);}}><LayoutDashboard size={16}/><span>Dashboard</span></button>}
+          <section className="nav-group"><h2>Inventory</h2><button className={`nav-item ${productView?'active':''}`} title="Product" aria-label="Product" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setEtsyView(false);setToolsView(false);setProductView(true);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><Box size={16}/><span>Product</span>{productView&&<span className="active-dot"/>}</button></section>
           {["Workshop", "Pricing", "Marketplaces"].filter(group => availableModules.some(t => t.group === group && (!isPostgres || status.modules?.includes(t.id)))).map((group) => (
             <section className="nav-group" key={group}>
               <h2>{group}</h2>
@@ -350,22 +352,22 @@ export default function Workspace({ initialView = '' }) {
                     key={tab.id}
                     title={tab.title}
                     aria-label={tab.title}
-                    className={`nav-item ${!lazadaView && !toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
+                    className={`nav-item ${!lazadaView && !etsyView && !toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id ? "active" : ""}`}
                     onClick={() => choose(tab)}
                   >
                     <MiniIcon tab={tab} size={16} />
                     <span>{tab.title}</span>
-                    {!lazadaView && !toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
+                    {!lazadaView && !etsyView && !toolsView && !productView && !shopeeView && !dashboard && !selectionsView && selected.id === tab.id && <span className="active-dot" />}
                   </button>
                 ))}
             </section>
           ))}
-          <section className="nav-group"><h2>Documents</h2><button className={`nav-item ${toolsView?'active':''}`} title="Tools" aria-label="Tools" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(true);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><FileSpreadsheet size={16}/><span>Tools</span>{toolsView&&<span className="active-dot"/>}</button></section>
-          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${lazadaView?'active':''}`} title="Lazada orders" aria-label="Lazada orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(true);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Lazada orders</span></button><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
+          <section className="nav-group"><h2>Documents</h2><button className={`nav-item ${toolsView?'active':''}`} title="Tools" aria-label="Tools" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setEtsyView(false);setToolsView(true);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><FileSpreadsheet size={16}/><span>Tools</span>{toolsView&&<span className="active-dot"/>}</button></section>
+          <section className="nav-group"><h2>Integrations</h2><button className={`nav-item ${lazadaView?'active':''}`} title="Lazada orders" aria-label="Lazada orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(true);setEtsyView(false);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Lazada orders</span></button><button className={`nav-item ${etsyView?'active':''}`} title="Etsy orders" aria-label="Etsy orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setEtsyView(true);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Etsy orders</span>{etsyView&&<span className="active-dot"/>}</button><button className={`nav-item ${shopeeView ? 'active' : ''}`} title="Shopee orders" aria-label="Shopee orders" onClick={()=>{if(saving||saveInFlight.current)return;setLazadaView(false);setEtsyView(false);setToolsView(false);setProductView(false);setShopeeView(true);setDashboard(false);setSelectionsView(false);setMobileNav(false);}}><ShoppingBag size={16}/><span>Shopee orders</span>{shopeeView&&<span className="active-dot"/>}</button></section>
         </nav>
         {isPostgres&&mode==='live'&&<button className="nav-item new-page-button" title="New page" aria-label="New page" disabled={saving} onClick={()=>setNewPage(true)}><FileSpreadsheet size={16}/><span>+ New page</span></button>}
         <div className="sidebar-bottom">
-          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setLazadaView(false);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
+          {isPostgres&&<button title="Manage selections" aria-label="Manage selections" onClick={()=>{if(saving)return;setLazadaView(false);setEtsyView(false);setToolsView(false);setProductView(false);setShopeeView(false);setDashboard(false);setSelectionsView(true);setMobileNav(false);}}><SlidersHorizontal size={16}/><span>Manage selections</span></button>}
           <button className="profile profile-settings" title="NS Labs Studio — Connection settings" aria-label="NS Labs Studio connection settings" onClick={() => setSetup(true)}>
             <span className="profile-badge"><img src="/icon.png" alt="" /></span>
             <span className="profile-settings-label"><b>NS Labs Studio</b><small>Connection settings</small></span>
@@ -397,7 +399,7 @@ export default function Workspace({ initialView = '' }) {
             <span className="divider" />
             <span>Workspace</span>
             <span className="slash">/</span>
-            <b>{lazadaView?"Lazada orders":toolsView?"Tools":productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
+            <b>{lazadaView?"Lazada orders":etsyView?"Etsy orders":toolsView?"Tools":productView?"Product":shopeeView?"Shopee orders":selectionsView?"Manage selections":dashboard?"Dashboard":selected.title}</b>
           </div>
           <div className="top-actions">
             <button
@@ -410,7 +412,7 @@ export default function Workspace({ initialView = '' }) {
           </div>
         </header>
         <main>
-          {lazadaView ? <Lazada connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : toolsView ? <Tools connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : productView ? <Products connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : shopeeView ? <ShopeeOrders connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
+          {lazadaView ? <Lazada connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : etsyView ? <Etsy connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : toolsView ? <Tools connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : productView ? <Products connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : shopeeView ? <ShopeeOrders connected={isPostgres&&mode==='live'} onSignIn={()=>setSetup(true)}/> : selectionsView ? <SelectionManager onSaved={()=>setRefresh(r=>r+1)}/> : dashboard ? <DashboardView/> : <>
           <div className="page-heading">
             <div>
               <div className="eyebrow">
@@ -946,9 +948,10 @@ function DashboardView(){
  const spending=Number(data?.costs||0)+Number(data?.filament||0);
  return <section className="dashboard-view"><div className="page-heading"><div><span className="eyebrow">NS LABS / OVERVIEW</span><h1>Dashboard</h1></div><button className="button" disabled={loading} onClick={()=>setRefresh(v=>v+1)}><RefreshCw size={15}/>{loading?'Refreshing':'Refresh'}</button></div>
  {error&&<p role="alert">{error}</p>}{!data&&loading?<p role="status">Loading dashboard...</p>:data&&<>
- <label className="selection-list-label">Marketplace <select aria-label="Dashboard marketplace" value={marketplace} onChange={e=>setMarketplace(e.target.value)}><option value="all">All marketplaces</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option></select></label>
- {marketplace!=='lazada'&&<ShopeeDashboard data={data.shopee} error={data.shopeeUnavailable}/>}
- {marketplace!=='shopee'&&<ShopeeDashboard marketplace="Lazada" data={data.lazada} error={data.lazadaUnavailable}/>}
+ <label className="selection-list-label">Marketplace <select aria-label="Dashboard marketplace" value={marketplace} onChange={e=>setMarketplace(e.target.value)}><option value="all">All marketplaces</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="etsy">Etsy</option></select></label>
+ {(marketplace==='all'||marketplace==='shopee')&&<ShopeeDashboard data={data.shopee} error={data.shopeeUnavailable}/>}
+ {(marketplace==='all'||marketplace==='lazada')&&<ShopeeDashboard marketplace="Lazada" data={data.lazada} error={data.lazadaUnavailable}/>}
+ {(marketplace==='etsy'||(marketplace==='all'&&data.etsy))&&<ShopeeDashboard marketplace="Etsy" data={data.etsy} error={data.etsyUnavailable}/>}
  <h2 className="dashboard-finance-heading">Workshop finances</h2>
  <div className="dashboard-cards">{[['Sales revenue',data.sales],['Total spending',spending],['Revenue less recorded costs',Number(data.sales)-Number(data.shipping)-spending],['Confirmed payouts',data.payouts],['Profit',Number(data.payouts)-spending],['Shipping costs',data.shipping],['Pending payouts',data.pending]].map(([label,value])=><article className="metric" key={label}><div className="metric-top">{label}</div><strong>{money(value)}</strong></article>)}</div>
  <p className="dashboard-note">All records · {data.saleCount} sales. Spending includes equipment and filament purchases. Revenue less costs excludes taxes, fees, and unrecorded expenses. Profit is confirmed payouts minus total spending. Payouts are shown separately from sales.</p>
