@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { etsyRequest, etsyToken, validateEtsyCredentials, pkcePair, etsyAuthorizeUrl, etsyReader } from '../lib/etsy.mjs';
-import { normalizeEtsyReceipt, etsyOrderStatus, addThb, fillMissingSkus } from '../lib/etsy-orders.mjs';
+import { normalizeEtsyReceipt, etsyOrderStatus, addThb, resolveCurrentSkus } from '../lib/etsy-orders.mjs';
 import { summarizeEtsy } from '../lib/etsy-dashboard.mjs';
 
 process.env.APP_URL = 'https://erp.example.com';
@@ -98,18 +98,28 @@ test('Etsy dashboard totals use THB equivalents and report the shop currency', (
   assert.equal(r.orderCount, 1); assert.equal(r.paymentsCents, 154067); assert.equal(r.monthPaymentsCents, 154067); assert.equal(r.currency, 'USD'); assert.equal(r.overseasOrders, 0);
 });
 
-test('an empty transaction SKU is filled from the listing inventory, one read per listing', async () => {
-  const blank = over => receipt({ transactions: [{ transaction_id: 1, title: 'A', sku: '', quantity: 1, listing_id: 88, product_id: 900, ...over }] });
-  const orders = [blank({}), blank({ transaction_id: 2, product_id: 901 }), receipt()].map(normalizeEtsyReceipt);
+test('past orders use the listing\'s current SKU: by product ID, then variation, then the only product', async () => {
+  const line = over => normalizeEtsyReceipt(receipt({ transactions: [{ transaction_id: 1, title: 'A', quantity: 1, listing_id: 88, product_id: 900, sku: '', ...over }] }));
+  const inventory = { products: [
+    { product_id: 900, sku: 'ST002' },
+    { product_id: 35743630571, sku: 'ST012S', property_values: [{ values: ['14 Inch (1:1100)'] }] },
+    { product_id: 35743630569, sku: 'ST012M', property_values: [{ values: ['17 Inch (1:900)'] }] },
+  ] };
+  const orders = [
+    line({}),                                                                                   // empty SKU, same product ID
+    line({ transaction_id: 2, product_id: 26207619635, sku: 'ST008S', variations: [{ formatted_name: 'Size', formatted_value: '14 Inch (1:1100)' }] }),
+    line({ transaction_id: 3, product_id: 26207619647, sku: 'ST008M', variations: [{ formatted_name: 'Size', formatted_value: '17 Inch (1:900)' }] }),
+    line({ transaction_id: 4, product_id: 1, sku: 'KEEP', variations: [{ formatted_name: 'Size', formatted_value: '20 Inch' }] }), // no match: keep
+  ];
   const reads = [];
-  const read = async (path) => { reads.push(path); return { products: [{ product_id: 900, sku: 'ST002' }, { product_id: 901, sku: 'ST002M' }] }; };
-  await fillMissingSkus(orders, read);
-  assert.deepEqual(orders.map(o => o.items[0].sku), ['ST002', 'ST002M', 'ST006']);
+  await resolveCurrentSkus(orders, async path => { reads.push(path); return inventory; });
+  assert.deepEqual(orders.map(o => o.items[0].sku), ['ST002', 'ST012S', 'ST012M', 'KEEP']);
+  assert.deepEqual(orders.map(o => o.items[0].etsySku), [undefined, 'ST008S', 'ST008M', undefined]);
   assert.deepEqual(reads, ['/v3/application/listings/88/inventory']);
-  const lonely = [normalizeEtsyReceipt(blank({ listing_id: 89, product_id: 999 }))];
-  await fillMissingSkus(lonely, async () => ({ products: [{ product_id: 1, sku: 'ONLY' }] }));
-  assert.equal(lonely[0].items[0].sku, 'ONLY');
-  const offline = [normalizeEtsyReceipt(blank({ listing_id: 90 }))];
-  await fillMissingSkus(offline, async () => { throw Error('down'); });
-  assert.equal(offline[0].items[0].sku, '');
+  const typo = [line({ listing_id: 89, product_id: 26570524696, sku: 'ST00S' })];
+  await resolveCurrentSkus(typo, async () => ({ products: [{ product_id: 35743618891, sku: 'ST001S' }] }));
+  assert.equal(typo[0].items[0].sku, 'ST001S'); assert.equal(typo[0].items[0].etsySku, 'ST00S');
+  const offline = [line({ listing_id: 90, sku: 'ST006' })];
+  await resolveCurrentSkus(offline, async () => { throw Error('down'); });
+  assert.equal(offline[0].items[0].sku, 'ST006');
 });
