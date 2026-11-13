@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { etsyRequest, etsyToken, validateEtsyCredentials, pkcePair, etsyAuthorizeUrl, etsyReader } from '../lib/etsy.mjs';
-import { normalizeEtsyReceipt, etsyOrderStatus, addThb } from '../lib/etsy-orders.mjs';
+import { normalizeEtsyReceipt, etsyOrderStatus, addThb, fillMissingSkus } from '../lib/etsy-orders.mjs';
 import { summarizeEtsy } from '../lib/etsy-dashboard.mjs';
 
 process.env.APP_URL = 'https://erp.example.com';
@@ -21,7 +21,7 @@ test('Etsy requests send keystring:secret, bearer token, and only allow listed r
   assert.equal(seen[0].options.method, 'GET'); assert.equal(seen[0].options.redirect, 'error');
   await etsyRequest('/v3/public/oauth/token', { form: { grant_type: 'refresh_token', refresh_token: 'r' } }, credentials, { fetcher });
   assert.equal(seen[1].options.method, 'POST'); assert.match(seen[1].options.body, /grant_type=refresh_token/);
-  await assert.rejects(etsyRequest('/v3/application/listings/1/inventory', {}, credentials, { fetcher }), /Unsupported/);
+  await assert.rejects(etsyRequest('/v3/application/listings/1/images', {}, credentials, { fetcher }), /Unsupported/);
   await assert.rejects(etsyRequest('/v3/application/shops/../users/me', {}, credentials, { fetcher }), /Unsupported/);
   assert.equal(seen.length, 2);
 });
@@ -59,7 +59,7 @@ const receipt = (over = {}) => ({
   name: 'Buyer Name', first_line: '1 Private Road', buyer_email: 'buyer@example.com', message_from_buyer: 'private', formatted_address: 'secret',
   country_iso: 'US', grandtotal: { amount: 4599, divisor: 100, currency_code: 'USD' }, total_shipping_cost: { amount: 800, divisor: 100, currency_code: 'USD' },
   shipments: [{ carrier_name: 'Thailand Post', tracking_code: 'EE123' }],
-  transactions: [{ transaction_id: 9, title: 'USS Enterprise-E Model', sku: 'ST006', quantity: 2, price: { amount: 1900, divisor: 100, currency_code: 'USD' }, listing_id: 77, variations: [{ formatted_name: 'Scale', formatted_value: '1:1400' }] }],
+  transactions: [{ transaction_id: 9, title: 'USS Enterprise-E Model', sku: 'ST006', quantity: 2, price: { amount: 1900, divisor: 100, currency_code: 'USD' }, listing_id: 77, product_id: 501, variations: [{ formatted_name: 'Scale', formatted_value: '1:1400' }, { formatted_name: 'Personalization', formatted_value: 'Private plaque text' }] }],
   ...over,
 });
 
@@ -67,9 +67,9 @@ test('Etsy receipts keep operational data only, with no buyer identity or addres
   const o = normalizeEtsyReceipt(receipt());
   assert.equal(o.orderId, '3456'); assert.equal(o.currency, 'USD'); assert.equal(o.orderTotalCents, 4599); assert.equal(o.shippingCents, 800);
   assert.equal(o.createdAt, '2026-11-12T16:13:20.000Z'); assert.deepEqual(o.carriers, ['Thailand Post']);
-  assert.deepEqual(o.items, [{ lineKey: '9', product: 'USS Enterprise-E Model', sku: 'ST006', variation: 'Scale: 1:1400', quantity: 2, unitPriceCents: 1900, listingId: '77' }]);
+  assert.deepEqual(o.items, [{ lineKey: '9', product: 'USS Enterprise-E Model', sku: 'ST006', variation: 'Scale: 1:1400', quantity: 2, unitPriceCents: 1900, listingId: '77', productId: '501' }]);
   const stored = JSON.stringify(o);
-  for (const secret of ['Buyer Name', 'Private Road', 'buyer@example.com', 'private', 'secret', 'EE123']) assert.equal(stored.includes(secret), false, secret);
+  for (const secret of ['Buyer Name', 'Private Road', 'buyer@example.com', 'private', 'secret', 'EE123', 'Private plaque text']) assert.equal(stored.includes(secret), false, secret);
   assert.throws(() => normalizeEtsyReceipt({ receipt_id: 'x' }));
 });
 
@@ -96,4 +96,20 @@ test('Etsy dashboard totals use THB equivalents and report the shop currency', (
   const o = { ...normalizeEtsyReceipt(receipt()), thbTotalCents: 154067 };
   const r = summarizeEtsy({ orders: [{ ...o, status: 'To ship' }, { ...o, orderId: '2', status: null }], checkedAt: '2026-11-13T00:00:00Z' }, new Date('2026-11-13T05:00:00Z'));
   assert.equal(r.orderCount, 1); assert.equal(r.paymentsCents, 154067); assert.equal(r.monthPaymentsCents, 154067); assert.equal(r.currency, 'USD'); assert.equal(r.overseasOrders, 0);
+});
+
+test('an empty transaction SKU is filled from the listing inventory, one read per listing', async () => {
+  const blank = over => receipt({ transactions: [{ transaction_id: 1, title: 'A', sku: '', quantity: 1, listing_id: 88, product_id: 900, ...over }] });
+  const orders = [blank({}), blank({ transaction_id: 2, product_id: 901 }), receipt()].map(normalizeEtsyReceipt);
+  const reads = [];
+  const read = async (path) => { reads.push(path); return { products: [{ product_id: 900, sku: 'ST002' }, { product_id: 901, sku: 'ST002M' }] }; };
+  await fillMissingSkus(orders, read);
+  assert.deepEqual(orders.map(o => o.items[0].sku), ['ST002', 'ST002M', 'ST006']);
+  assert.deepEqual(reads, ['/v3/application/listings/88/inventory']);
+  const lonely = [normalizeEtsyReceipt(blank({ listing_id: 89, product_id: 999 }))];
+  await fillMissingSkus(lonely, async () => ({ products: [{ product_id: 1, sku: 'ONLY' }] }));
+  assert.equal(lonely[0].items[0].sku, 'ONLY');
+  const offline = [normalizeEtsyReceipt(blank({ listing_id: 90 }))];
+  await fillMissingSkus(offline, async () => { throw Error('down'); });
+  assert.equal(offline[0].items[0].sku, '');
 });
