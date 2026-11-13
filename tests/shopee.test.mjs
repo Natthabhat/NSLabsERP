@@ -32,3 +32,20 @@ test('read-only Shopee integration distinguishes missing, empty, and malformed r
     await assert.rejects(readShopeeSnapshot(directory), /could not be read/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test('overseas SIP orders keep their region and currency, with a THB equivalent', () => {
+  const data = report();
+  data.orders.push({ orderId: 'MY-001', region: 'my', status: 'To ship', currency: 'MYR', createdAt: '2026-11-10 21:24', orderTotalCents: 48183, thbTotalCents: 397486, fxRateToThb: 8.2495, fxDate: '2026-11-10', items: [{ lineKey: 'my1', product: 'Model', sku: 'ST006', quantity: 1, unitPriceCents: 23434, lineSubtotalCents: 23434 }] });
+  data.regions = [{ region: 'th', orderCount: 1, ok: true }, { region: 'my', orderCount: 1, ok: true }, { region: 'xx', ok: true }];
+  const result = validateShopeeSnapshot(data);
+  const th = result.orders.find(o => o.orderId === 'TEST-001'), my = result.orders.find(o => o.orderId === 'MY-001');
+  assert.equal(th.region, 'th'); assert.equal(th.currency, 'THB'); assert.equal(th.thbTotalCents, th.orderTotalCents);
+  assert.equal(my.region, 'my'); assert.equal(my.currency, 'MYR'); assert.equal(my.thbTotalCents, 397486); assert.equal(my.fxRateToThb, 8.2495);
+  assert.deepEqual(result.regions.map(r => r.region), ['th', 'my']);
+});
+
+test('an order whose currency does not match its shop region is rejected', () => {
+  const data = report();
+  data.orders[0] = { ...data.orders[0], region: 'my' };
+  assert.throws(() => validateShopeeSnapshot(data), /region or currency/);
+});

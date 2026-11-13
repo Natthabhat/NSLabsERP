@@ -15,3 +15,5 @@
 .shopee-status-card{font:inherit;text-align:left;color:inherit;cursor:pointer;transition:border-color .15s,background .15s}.shopee-metrics .shopee-status-card:hover{background:#f7faf4;border-color:#9eaf98}.shopee-metrics .shopee-status-card[aria-pressed=true]{border-color:#66805d;background:#f5f8f0}.shopee-status-card:focus-visible{outline:2px solid #66805d;outline-offset:3px}
 
 .shopee-status[data-status="Complete"] {color:#166534;background:#ecfdf3;border-color:#86cda0;}
+
+.shopee-region-badge{display:inline-block;margin-left:8px;padding:2px 6px;border:1px solid #cfdcf0;border-radius:4px;background:#eef3fb;color:#34558a;font-size:11px;font-weight:600;letter-spacing:.4px;vertical-align:middle}.shopee-amount small{display:block;margin-top:4px;font-size:12px;color:#777;font-weight:400}.shopee-detail-total strong small{display:block;font-size:13px;color:#777;font-weight:400;margin-top:4px;text-align:right}
