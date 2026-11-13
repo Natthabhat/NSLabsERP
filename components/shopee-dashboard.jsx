@@ -2,7 +2,7 @@ import { ShoppingBag,Package,CheckCircle2,ArrowUpRight } from 'lucide-react';
 const money=cents=>cents==null?'—':new Intl.NumberFormat('en-TH',{style:'currency',currency:'THB'}).format(cents/100);
 function localTime(value){return value?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(value)):'—';}
 export default function ShopeeDashboard({data,error,marketplace="Shopee"}) {
-  const route=marketplace==='Lazada'?'/lazada':marketplace==='Etsy'?'/etsy':'/shopee';
+  const route=marketplace==='Lazada'?'/lazada':marketplace==='Etsy'?'/etsy':marketplace==='eBay'?'/ebay':'/shopee';
   return <section className="dashboard-shopee" aria-label={`${marketplace} overview`}><div className="dashboard-shopee-heading"><div><span className="eyebrow">MARKETPLACE</span><h2>{marketplace} overview</h2></div><a className="button" href={route}>View orders<ArrowUpRight size={16}/></a></div>
     {error?<p role="status" className="dashboard-note">{marketplace} information is temporarily unavailable. <a href={route}>View {marketplace} orders</a></p>:!data?<p className="dashboard-note">Your {marketplace} overview will appear after the first order import.</p>:<>
     <div className="dashboard-shopee-statuses">{[['To ship',ShoppingBag,'Waiting for shipment'],['Shipped',Package,'On the way to buyers'],['Complete',CheckCircle2,'Saved order history']].map(([status,Icon,description])=><a key={status} href={`${route}?status=${encodeURIComponent(status)}`} className="dashboard-shopee-status"><span><Icon size={17}/>{status}</span><strong>{data.counts[status].toLocaleString()}</strong><small>{description}</small></a>)}</div>
