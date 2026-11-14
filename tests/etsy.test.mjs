@@ -123,3 +123,16 @@ test('past orders use the listing\'s current SKU: by product ID, then variation,
   await resolveCurrentSkus(offline, async () => { throw Error('down'); });
   assert.equal(offline[0].items[0].sku, 'ST006');
 });
+
+test('Etsy payment records add fees and net to paid orders, preferring adjusted amounts', async () => {
+  const { addEtsyPayments } = await import('../lib/etsy-orders.mjs');
+  const orders = [normalizeEtsyReceipt(receipt()), normalizeEtsyReceipt(receipt({ receipt_id: 3457, is_paid: false })), normalizeEtsyReceipt(receipt({ receipt_id: 3458 }))];
+  const paths = [];
+  await addEtsyPayments(orders, async path => {
+    paths.push(path);
+    if (path.includes('/3458/')) return { results: [{ amount_fees: { amount: 667, divisor: 100 }, amount_net: { amount: 8982, divisor: 100 }, adjusted_fees: { amount: 700, divisor: 100 }, adjusted_net: { amount: 5000, divisor: 100 } }] };
+    return { results: [{ amount_fees: { amount: 300, divisor: 100 }, amount_net: { amount: 4000, divisor: 100 } }] };
+  }, '123');
+  assert.deepEqual(paths, ['/v3/application/shops/123/receipts/3456/payments', '/v3/application/shops/123/receipts/3458/payments']);
+  assert.deepEqual(orders.map(o => [o.feesCents, o.netCents]), [[300, 4000], [undefined, undefined], [700, 5000]]);
+});
