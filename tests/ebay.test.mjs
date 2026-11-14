@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { ebayRequest, ebayTokenRequest, ebayToken, validateEbayCredentials, ebayAuthorizeUrl, ebayReader, ebayChallengeResponse, ebayVerificationToken, EBAY_SCOPES } from '../lib/ebay.mjs';
-import { normalizeEbayOrder, normalizeEbayPayout, ebayOrderStatus } from '../lib/ebay-orders.mjs';
+import { ebayRequest, ebayTokenRequest, ebayToken, validateEbayCredentials, ebayAuthorizeUrl, ebayReader, ebayChallengeResponse, ebayVerificationToken, EBAY_SCOPES, parseEbayItemSkus, ebayItemReader } from '../lib/ebay.mjs';
+import { normalizeEbayOrder, normalizeEbayPayout, ebayOrderStatus, resolveEbaySkus } from '../lib/ebay-orders.mjs';
 import { summarizeEbay } from '../lib/ebay-dashboard.mjs';
 
 process.env.APP_URL = 'https://erp.example.com';
@@ -102,4 +102,44 @@ test('eBay dashboard totals use THB equivalents', () => {
   const o = { ...normalizeEbayOrder(order()), thbTotalCents: 300000, status: 'To ship' };
   const r = summarizeEbay({ orders: [o, { ...o, orderId: '2', status: null }], checkedAt: '2026-11-13T00:00:00Z' }, new Date('2026-11-13T05:00:00Z'));
   assert.equal(r.orderCount, 1); assert.equal(r.paymentsCents, 300000); assert.equal(r.monthPaymentsCents, 300000); assert.equal(r.currency, 'USD');
+});
+
+test('Trading GetItem responses yield the item SKU and variation SKUs; failures yield null', () => {
+  const single = '<?xml version="1.0"?><GetItemResponse xmlns="urn:ebay:apis:eBLBaseComponents"><Ack>Success</Ack><Item><ItemID>358181166379</ItemID><SKU>ST002</SKU></Item></GetItemResponse>';
+  assert.deepEqual(parseEbayItemSkus(single), { sku: 'ST002', variations: [] });
+  const variations = '<GetItemResponse><Ack>Warning</Ack><Item><ItemID>1</ItemID><SKU>PARENT</SKU><Variations><Variation><SKU>ST012S</SKU><VariationSpecifics><NameValueList><Name>Size</Name><Value>14 Inch (1:1100)</Value></NameValueList></VariationSpecifics></Variation><Variation><SKU>ST012M</SKU><VariationSpecifics><NameValueList><Name>Size</Name><Value>17 Inch &amp; Base</Value></NameValueList></VariationSpecifics></Variation></Variations></Item></GetItemResponse>';
+  assert.deepEqual(parseEbayItemSkus(variations), { sku: 'PARENT', variations: [{ sku: 'ST012S', values: ['14 inch (1:1100)'] }, { sku: 'ST012M', values: ['17 inch & base'] }] });
+  assert.deepEqual(parseEbayItemSkus('<GetItemResponse><Ack>Success</Ack><Item><ItemID>1</ItemID></Item></GetItemResponse>'), { sku: '', variations: [] });
+  assert.equal(parseEbayItemSkus('<GetItemResponse><Ack>Failure</Ack><Errors/></GetItemResponse>'), null);
+});
+
+test('GetItem sends the user token as IAF token and rejects non-numeric item IDs', async () => {
+  let seen; const item = ebayItemReader({ accessToken: 'v^1.1#user' }, { pause: 0, fetcher: async (url, o) => { seen = { url, o }; return { ok: true, text: async () => '<GetItemResponse><Ack>Success</Ack><Item><SKU>ST006</SKU></Item></GetItemResponse>' }; } });
+  assert.deepEqual(await item('358181195402'), { sku: 'ST006', variations: [] });
+  assert.equal(seen.url, 'https://api.ebay.com/ws/api.dll'); assert.equal(seen.o.headers['X-EBAY-API-IAF-TOKEN'], 'v^1.1#user'); assert.equal(seen.o.headers['X-EBAY-API-CALL-NAME'], 'GetItem');
+  assert.match(seen.o.body, /<ItemID>358181195402<\/ItemID>/);
+  assert.equal(await item('1</ItemID><x>'), null);
+  assert.equal(await ebayItemReader({ accessToken: 't' }, { pause: 0, fetcher: async () => { throw Error('down'); } })('358181195402'), null);
+});
+
+test('eBay lines use the listing\'s current label or matching variation SKU; the recorded SKU is kept', async () => {
+  const line = (id, over) => normalizeEbayOrder(order({ orderId: `11-0000${id}-00000`, lineItems: [{ lineItemId: String(id), legacyItemId: '900', title: 'T', quantity: 1, lineItemCost: { value: '10.00', currency: 'USD' }, ...over }] }));
+  const listings = { '900': { sku: 'ST002', variations: [] }, '901': { sku: '', variations: [{ sku: 'ST012S', values: ['14 inch (1:1100)'] }, { sku: 'ST012M', values: ['17 inch (1:900)'] }] }, '902': null };
+  const calls = [];
+  const item = async id => { calls.push(id); return listings[id]; };
+  const orders = [
+    line(1, { sku: '' }),                                                    // no label recorded: current label
+    line(2, { sku: 'OLD' }),                                                 // corrected label replaces it
+    line(3, { legacyItemId: '901', variationAspects: [{ name: 'Size', value: '17 Inch (1:900)' }] }),
+    line(4, { legacyItemId: '901', variationAspects: [{ name: 'Size', value: '20 Inch' }] }), // no variation match
+    line(5, { legacyItemId: '902', sku: 'KEEP' }),                           // GetItem failed
+  ];
+  await resolveEbaySkus(orders, item);
+  assert.deepEqual(orders.map(o => o.items[0].sku), ['ST002', 'ST002', 'ST012M', '', 'KEEP']);
+  assert.deepEqual(orders.map(o => o.items[0].ebaySku), [undefined, 'OLD', undefined, undefined, undefined]);
+  assert.deepEqual(calls, ['900', '901', '902']);
+  assert.equal((await resolveEbaySkus([line(6, { sku: 'X' })], undefined))[0].items[0].sku, 'X');
+  const gone = [line(7, { legacyItemId: '902', title: 'USS Voyager Fan Made Replica [ST011]' }), line(8, { legacyItemId: '902', title: 'Prometheus Model 1:1000 Fan Made ST012' }), line(9, { legacyItemId: '902', title: 'No code here' })];
+  await resolveEbaySkus(gone, item);
+  assert.deepEqual(gone.map(o => [o.items[0].sku, o.items[0].skuFromTitle]), [['ST011', true], ['ST012', true], ['', undefined]]);
 });
