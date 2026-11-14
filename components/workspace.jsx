@@ -75,7 +75,7 @@ const baht=v=>v==null?null:new Intl.NumberFormat('en-TH',{style:'currency',curre
 // Platform order matched to an ST log row: order link, buyer payment and (eBay, Etsy) estimated after fees, per model.
 function StLogLink({link}){
   if(!link)return <span className="st-link st-link-none" title="No imported order with this product and platform within 4 days">Not matched</span>;
-  return <span className="st-link"><a href={link.href} title={`${link.platform} order from ${link.orderDate}`}>{link.orderId}</a><small>{baht(link.buyerThb)??'—'} paid{link.feesKnown?` · ≈${baht(link.afterFeesThb)} after fees`:' · fees n/a'}</small></span>;
+  return <span className="st-link"><a href={link.href} title={`${link.platform} order from ${link.orderDate}`}>{link.orderId}</a><small>{baht(link.buyerThb)??'—'} paid{link.feesKnown?` · ≈${baht(link.afterFeesThb)} after fees`:' · fees n/a'}</small>{link.auto&&<small className="st-link-auto">Added automatically</small>}</span>;
 }
 
 export default function Workspace({ initialView = '' }) {
