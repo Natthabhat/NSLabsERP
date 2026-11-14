@@ -106,16 +106,16 @@ test('eBay dashboard totals use THB equivalents', () => {
 
 test('Trading GetItem responses yield the item SKU and variation SKUs; failures yield null', () => {
   const single = '<?xml version="1.0"?><GetItemResponse xmlns="urn:ebay:apis:eBLBaseComponents"><Ack>Success</Ack><Item><ItemID>358181166379</ItemID><SKU>ST002</SKU></Item></GetItemResponse>';
-  assert.deepEqual(parseEbayItemSkus(single), { sku: 'ST002', variations: [] });
+  assert.deepEqual(parseEbayItemSkus(single), { sku: 'ST002', variations: [], relistedItemId: null });
   const variations = '<GetItemResponse><Ack>Warning</Ack><Item><ItemID>1</ItemID><SKU>PARENT</SKU><Variations><Variation><SKU>ST012S</SKU><VariationSpecifics><NameValueList><Name>Size</Name><Value>14 Inch (1:1100)</Value></NameValueList></VariationSpecifics></Variation><Variation><SKU>ST012M</SKU><VariationSpecifics><NameValueList><Name>Size</Name><Value>17 Inch &amp; Base</Value></NameValueList></VariationSpecifics></Variation></Variations></Item></GetItemResponse>';
-  assert.deepEqual(parseEbayItemSkus(variations), { sku: 'PARENT', variations: [{ sku: 'ST012S', values: ['14 inch (1:1100)'] }, { sku: 'ST012M', values: ['17 inch & base'] }] });
-  assert.deepEqual(parseEbayItemSkus('<GetItemResponse><Ack>Success</Ack><Item><ItemID>1</ItemID></Item></GetItemResponse>'), { sku: '', variations: [] });
+  assert.deepEqual(parseEbayItemSkus(variations), { sku: 'PARENT', variations: [{ sku: 'ST012S', values: ['14 inch (1:1100)'] }, { sku: 'ST012M', values: ['17 inch & base'] }], relistedItemId: null });
+  assert.deepEqual(parseEbayItemSkus('<GetItemResponse><Ack>Success</Ack><Item><ItemID>1</ItemID><ListingDetails><RelistedItemID>820110537620</RelistedItemID></ListingDetails></Item></GetItemResponse>'), { sku: '', variations: [], relistedItemId: '820110537620' });
   assert.equal(parseEbayItemSkus('<GetItemResponse><Ack>Failure</Ack><Errors/></GetItemResponse>'), null);
 });
 
 test('GetItem sends the user token as IAF token and rejects non-numeric item IDs', async () => {
   let seen; const item = ebayItemReader({ accessToken: 'v^1.1#user' }, { pause: 0, fetcher: async (url, o) => { seen = { url, o }; return { ok: true, text: async () => '<GetItemResponse><Ack>Success</Ack><Item><SKU>ST006</SKU></Item></GetItemResponse>' }; } });
-  assert.deepEqual(await item('358181195402'), { sku: 'ST006', variations: [] });
+  assert.deepEqual(await item('358181195402'), { sku: 'ST006', variations: [], relistedItemId: null });
   assert.equal(seen.url, 'https://api.ebay.com/ws/api.dll'); assert.equal(seen.o.headers['X-EBAY-API-IAF-TOKEN'], 'v^1.1#user'); assert.equal(seen.o.headers['X-EBAY-API-CALL-NAME'], 'GetItem');
   assert.match(seen.o.body, /<ItemID>358181195402<\/ItemID>/);
   assert.equal(await item('1</ItemID><x>'), null);
@@ -139,6 +139,10 @@ test('eBay lines use the listing\'s current label or matching variation SKU; the
   assert.deepEqual(orders.map(o => o.items[0].ebaySku), [undefined, 'OLD', undefined, undefined, undefined]);
   assert.deepEqual(calls, ['900', '901', '902']);
   assert.equal((await resolveEbaySkus([line(6, { sku: 'X' })], undefined))[0].items[0].sku, 'X');
+  const relist = { '903': { sku: '', variations: [], relistedItemId: '904' }, '904': { sku: 'ST008', variations: [] }, '905': { sku: '', variations: [], relistedItemId: null } };
+  const ended = [line(10, { legacyItemId: '903', title: 'USS Enterprise G Fan Made Replica' }), line(11, { legacyItemId: '905', title: 'USS Enterprise A Fan Made Replica [ST002]' }), line(12, { legacyItemId: '905', title: 'No code' })];
+  await resolveEbaySkus(ended, async id => relist[id]);
+  assert.deepEqual(ended.map(o => [o.items[0].sku, o.items[0].skuFromTitle]), [['ST008', undefined], ['ST002', true], ['', undefined]]);
   const gone = [line(7, { legacyItemId: '902', title: 'USS Voyager Fan Made Replica [ST011]' }), line(8, { legacyItemId: '902', title: 'Prometheus Model 1:1000 Fan Made ST012' }), line(9, { legacyItemId: '902', title: 'No code here' })];
   await resolveEbaySkus(gone, item);
   assert.deepEqual(gone.map(o => [o.items[0].sku, o.items[0].skuFromTitle]), [['ST011', true], ['ST012', true], ['', undefined]]);
