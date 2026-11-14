@@ -71,6 +71,13 @@ function MiniIcon({ tab, ...props }) {
   const Icon = icons[tab.icon];
   return <Icon {...props} />;
 }
+const baht=v=>v==null?null:new Intl.NumberFormat('en-TH',{style:'currency',currency:'THB',maximumFractionDigits:0}).format(v);
+// Platform order matched to an ST log row: order link, buyer payment and (eBay, Etsy) estimated after fees, per model.
+function StLogLink({link}){
+  if(!link)return <span className="st-link st-link-none" title="No imported order with this product and platform within 4 days">Not matched</span>;
+  return <span className="st-link"><a href={link.href} title={`${link.platform} order from ${link.orderDate}`}>{link.orderId}</a><small>{baht(link.buyerThb)??'—'} paid{link.feesKnown?` · ≈${baht(link.afterFeesThb)} after fees`:' · fees n/a'}</small></span>;
+}
+
 export default function Workspace({ initialView = '' }) {
   const [lazadaView,setLazadaView]=useState(initialView === 'lazada');
   const [etsyView,setEtsyView]=useState(initialView === 'etsy');
@@ -650,6 +657,7 @@ export default function Workspace({ initialView = '' }) {
                           {data.fields?.[i]?.options ? <select aria-label={`Filter ${h}`} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}><option value="">All</option>{data.fields[i].options.map(option=><option key={option} value={option}>{data.fields[i].optionLabels?.[option]||option}</option>)}</select> : <input aria-label={`Filter ${h}`} placeholder="Filter…" type={data.fields?.[i]?.type==='date'?'date':'search'} maxLength={200} value={columnFilters[i]||''} disabled={saving} onChange={e=>{setColumnFilters({...columnFilters,[i]:e.target.value});setPage(0);}}/>}
                         </th>
                       ))}
+                      {data?.linksAvailable && <th>Platform order</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -686,6 +694,7 @@ export default function Workspace({ initialView = '' }) {
                               )}
                             </td>
                           ))}
+                          {data?.linksAvailable && <td><StLogLink link={record.link}/></td>}
                         </tr>
                       ))
                     ) : (
