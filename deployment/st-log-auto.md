@@ -9,3 +9,7 @@ Once a day at 06:00 Bangkok time the ERP refreshes Etsy, eBay and Lazada, then a
 Price is the THB amount after platform fees where the platform reports them (eBay order fees, Etsy payment net, Shopee commission, transaction and service fees from the collector's export), otherwise the buyer payment. Shipping is 700 for eBay and Etsy and 0 for Shopee and Lazada. Buyer is left empty. The ST log grid marks these rows "Added automatically".
 
 Apply `sql/015-st-log-auto-manual.sql` as well. To mark an order unit as already recorded by a hand-entered row that matching cannot pair (for example a different product code), insert it into `erp_web.st_log_auto` with `price_basis='manual'` and that row's `log_id`; it will not be added automatically.
+
+## eBay and Etsy payouts in the payouts sheet
+
+Apply `sql/017-payout-sheet-links.sql`. When enabled (`UPDATE erp_web.payout_sheet_settings SET enabled=true`), the daily job adds each eBay (succeeded) and Etsy payout that no payouts-sheet row records yet to `public.platform_payouts`: next code in the platform's series, payout date, THB at the ECB rate for that day, unconfirmed. `erp_web.payout_sheet_links` records the row for each payout; existing hand-entered rows that record a payout are linked with basis `matched` so it is not added again.
