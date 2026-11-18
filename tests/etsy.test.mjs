@@ -136,3 +136,11 @@ test('Etsy payment records add fees and net to paid orders, preferring adjusted 
   assert.deepEqual(paths, ['/v3/application/shops/123/receipts/3456/payments', '/v3/application/shops/123/receipts/3458/payments']);
   assert.deepEqual(orders.map(o => [o.feesCents, o.netCents]), [[300, 4000], [undefined, undefined], [700, 5000]]);
 });
+
+test('Etsy payouts are the ledger disbursements, read in windows of at most 31 days', async () => {
+  const { normalizeEtsyPayout } = await import('../lib/etsy-orders.mjs');
+  assert.deepEqual(normalizeEtsyPayout({ entry_id: 77, ledger_type: 'DISBURSE2', reference_type: 'disbursement', description: 'DISBURSE2', amount: -21405, currency: 'USD', created_timestamp: 1794800000 }),
+    { payoutId: '77', status: 'SENT', payoutDate: new Date(1794800000 * 1000).toISOString(), currency: 'USD', amountCents: 21405 });
+  for (const e of [{ entry_id: 1, ledger_type: 'listing', reference_type: 'listing', description: 'listing', amount: -20 }, { entry_id: 2, ledger_type: 'RETURNED_DISBURSE', reference_type: 'disbursement', description: 'returned disbursement', amount: 500 }])
+    assert.equal(normalizeEtsyPayout(e), null);
+});
