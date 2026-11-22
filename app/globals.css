@@ -1948,3 +1948,13 @@ thead th > input,thead th > select {display:block;margin-top:9px;width:100%;min-
 .dashboard-shopee-stats article small{display:block;margin-top:6px;font-size:12px;color:var(--muted,#777);font-weight:400}
 .st-link{display:grid;gap:3px;min-width:150px;font-size:13px}.st-link a{font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:#bbb;overflow-wrap:anywhere}.st-link small{font-size:12px;color:var(--muted,#777)}.st-link-none{color:var(--muted,#999);font-size:12px}
 .st-link-auto{color:#2f6b45!important;font-weight:500}
+.guest-blank{min-height:100dvh;background:var(--bg,#f7f7f5)}
+.guest-login{min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--bg,#f7f7f5)}
+.guest-card{width:min(380px,100%);display:grid;gap:18px;background:#fff;border:1px solid #e2e2e2;border-radius:14px;padding:32px 28px;box-shadow:0 10px 40px #0000000d}
+.guest-card .guest-logo{height:34px;width:auto;justify-self:start}
+.guest-card h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.3px}
+.guest-card form{display:grid;gap:14px}
+.guest-card label{display:grid;gap:6px;font-size:13px;color:#666}
+.guest-card input{font:inherit;font-size:15px;padding:11px 12px;border:1px solid #d8d8d8;border-radius:8px;background:#fff;color:#222}
+.guest-card input:focus{outline:2px solid #bcbcbc;outline-offset:1px}
+.guest-error{margin:0;font-size:13px;color:#a23b2a}

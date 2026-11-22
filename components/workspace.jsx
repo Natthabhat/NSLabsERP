@@ -327,6 +327,10 @@ export default function Workspace({ initialView = '' }) {
   const fresh = !loading && !error,
     records = data?.rows || [],
     rowsLabel = data?.total === undefined ? "—" : data.total.toLocaleString();
+  // Guests see only a sign-in page: nothing is drawn until the session is known, and no workspace, sheet
+  // names or demo data are shown without a signed-in account.
+  if (!status) return error ? <GuestLogin status={null} error={error} onConnected={() => window.location.reload()}/> : <div className="guest-blank" aria-busy="true"/>;
+  if (!status.connected) return <GuestLogin status={status} error={error} onConnected={async () => { const next = await api("/api/status"); setStatus(next); if (next.connected) { setError(""); changeMode("live"); setRefresh(r => r + 1); } }}/>;
   return (
     <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       {newPage&&<NewPageForm onClose={()=>setNewPage(false)} onCreate={async request=>{const created=await api('/api/pages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});const next=await api('/api/status');setStatus(next);const tab=next.customPages.find(p=>p.id===created.id);if(tab)choose(tab);setNewPage(false);notify('Page created');}}/>}
@@ -901,6 +905,23 @@ function CellValue({ value, header }) {
   return (
     <span className={value === "" ? "empty-value" : ""}>{value || "—"}</span>
   );
+}
+
+// Full-page sign-in shown to anyone who is not signed in.
+function GuestLogin({status,error,onConnected}) {
+  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const postgres=status?.backend==='postgres';
+  async function submit(e){e.preventDefault();setBusy(true);setMessage('');try{await api('/api/auth/database',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});setPassword('');await onConnected();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+  return <main className="guest-login"><section className="guest-card" aria-label="Sign in">
+    <img src="/logo-black.png" alt="NS Labs" className="guest-logo"/>
+    <h1>Sign in</h1>
+    {status&&!postgres?<a className="button primary full" href="/api/auth/start">Sign in with Google</a>:<form onSubmit={submit}>
+      <label>Username<input autoComplete="username" required value={username} onChange={e=>setUsername(e.target.value)} disabled={busy||!status}/></label>
+      <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy||!status}/></label>
+      <button className="button primary full" disabled={busy||!status}>{busy?'Signing in…':'Sign in'}</button>
+    </form>}
+    {(message||(!status&&error))&&<p className="guest-error" role="alert">{message||'The sign-in service is unavailable. Please try again shortly.'}</p>}
+  </section></main>;
 }
 
 function DatabaseLogin({status,onClose,onConnected,onLogout}) {
